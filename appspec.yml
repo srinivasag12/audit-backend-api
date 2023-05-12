@@ -1,0 +1,5 @@
+version: 0.0
+os: windows
+files:
+  - source: ./CentralAuditApi.war
+    destination: D:/glassfish4/glassfish/domains/CentralApi/autodeploy

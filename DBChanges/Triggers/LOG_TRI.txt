@@ -1,0 +1,40 @@
+DROP TRIGGER AUDIT_STAG_TEST.LOG_TRI;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."LOG_TRI"   
+after update 
+on audit_email_log_dtls
+for each row
+declare
+vEmailSeq number;
+vOldAccLink varchar2(100);
+vNewAccLink varchar2(100);
+vSubject varchar2(500);
+vBody varchar2(1000);
+
+pragma AUTONOMOUS_TRANSACTION;
+begin
+
+if :new.ACCESS_LINK <> :old.ACCESS_LINK then
+
+/*
+select email_seq, subject, message 
+into vEmailSeq, vSubject, vBody  
+from Audit_Vw
+where ACCESS_LINK = :old.ACCESS_LINK;
+*/
+
+select email_seq, subject, message 
+into vEmailSeq, vSubject, vBody  
+from audit_email_log_dtls
+where ACCESS_LINK = :old.ACCESS_LINK;
+
+insert into audit_log(email_seq,Old_Access_Link,New_Access_Link,Subject,body )
+values(vEmailSeq, :old.ACCESS_LINK, :new.ACCESS_LINK,vSubject,vBody  );
+commit;
+end if;
+ 
+exception 
+when others then
+raise;
+end;
+/

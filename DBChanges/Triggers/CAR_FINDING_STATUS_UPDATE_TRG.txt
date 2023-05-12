@@ -1,0 +1,218 @@
+DROP TRIGGER AUDIT_STAG_TEST.CAR_FINDING_STATUS_UPDATE_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST.car_finding_status_update_trg
+after update  
+ON AUDIT_STAG_TEST.AUDIT_FINDINGS_DETAILS for each row
+DISABLE
+declare 
+v_find_categ varchar2(200);
+v_description varchar2(200);
+v_ism_code varchar2(2000);
+v_ism_ele varchar2(2000);
+v_vessel_name varchar2(200);
+v_status_seq_no number;
+v_cur_audit_seq_no number;
+v_orig_seq_no number;
+v_finding_seq_no number;
+v_finding_category_id number;
+v_subject varchar2(200);
+v_body varchar2(2000);
+v_cc varchar2(200);
+v_from varchar2(200):= audit_details_pkg.v_from;
+v_company_id number;
+v_vessel_imo_no varchar2(200);
+v_ad_auditor varchar2(200);
+vleadaud varchar2(200);
+v_audit_type_id number;
+v_aud_type varchar2(200);
+v_aud_sub_type varchar2(200);
+v_status_id number;
+v_finding_catrgory_id number;
+v_status_date date;
+v_next_action_id number;
+v_due_date varchar2(200);
+v_user_ins varchar2(200);
+v_date_ins date;
+audit_desc_msg varchar2(200);
+v_audit_seq_no number;
+begin
+if updating then
+dbms_output.put_line('step1');
+v_status_seq_no:=:new.status_seq_no;
+v_cur_audit_seq_no:=:new.cur_audit_seq_no;
+v_orig_seq_no:=:new.orig_seq_no;
+v_finding_seq_no:=:new.finding_seq_no;
+v_finding_category_id:=:new.finding_category_id;
+v_status_id:=:new.status_id;
+v_status_date:=:new.status_date;
+v_next_action_id:=:new.next_action_id;
+v_due_date:=:new.due_date;
+v_description:=:new.description;
+v_user_ins:=:new.user_ins;
+v_date_ins:=:new.date_ins;
+v_audit_type_id:=:new.audit_type_id;
+v_audit_seq_no:=v_cur_audit_seq_no;
+v_company_id:=:new.company_id;
+dbms_output.put_line(v_audit_seq_no);
+dbms_output.put_line(v_status_seq_no);
+dbms_output.put_line(v_cur_audit_seq_no);
+dbms_output.put_line(v_orig_seq_no);
+dbms_output.put_line(v_finding_seq_no);
+dbms_output.put_line(v_finding_category_id);
+dbms_output.put_line(v_status_id);
+dbms_output.put_line(v_status_date);
+dbms_output.put_line(v_next_action_id);
+dbms_output.put_line(v_due_date);
+dbms_output.put_line(v_description);
+dbms_output.put_line(v_user_ins);
+dbms_output.put_line(v_date_ins);
+dbms_output.put_line(v_audit_type_id);
+
+---to pick lead auditor
+dbms_output.put_line('step2');
+select user_id into vleadaud from audit_auditor_details where audit_seq_no=v_audit_seq_no  
+and company_id=v_company_id 
+and audit_role_id=1001
+and aud_lead_status=1;
+dbms_output.put_line(vleadaud);
+--to pick additional auditor
+dbms_output.put_line('step3');/*
+select user_id into v_ad_auditor from audit_auditor_details where audit_seq_no=v_audit_seq_no
+and company_id=v_company_id
+and audit_role_id=1001
+and aud_lead_status=0;
+dbms_output.put_line(v_ad_auditor);*/
+-- to pick cc(rmi admin)
+dbms_output.put_line('step4');
+select user_id into v_cc from ma_user_roles where role_id=1002;
+dbms_output.put_line(v_cc);
+--to pick subject and body
+dbms_output.put_line('step5 commented');
+ select subject,body into v_subject,v_body from audit_email_dtls where email_seq=42;
+dbms_output.put_line('step6');
+SELECT AUDIT_TYPE_DESC
+                 INTO v_aud_type
+                 FROM ma_audit_type
+                WHERE audit_type_id = v_audit_type_id
+                      AND company_id = v_company_id;
+
+               DBMS_OUTPUT.put_line ('v_aud_type ' || v_aud_type);
+dbms_output.put_line('step7');
+               SELECT AUDIT_SUBTYPE_DESC
+                 INTO v_aud_sub_type
+                 FROM audit_details ad, ma_audit_subtype mast
+                WHERE     ad.audit_type_id = mast.audit_type_id
+                      AND ad.audit_sub_type_id = mast.audit_sub_type_id
+                      AND ad.company_id = mast.company_id
+                      AND ad.audit_type_id = v_audit_type_id
+                      AND ad.company_id = v_company_id
+                      AND ad.audit_seq_no = v_orig_seq_no;
+
+               DBMS_OUTPUT.put_line ('v_aud_sub_type ' || v_aud_sub_type);
+dbms_output.put_line('step8');
+               SELECT mv.vessel_imo_no, mv.vessel_name
+                 INTO v_vessel_imo_no, v_vessel_name
+                 FROM ma_vessel mv
+                WHERE (mv.vessel_imo_no, mv.company_id) IN
+                         (SELECT ad.vessel_imo_no, ad.company_id
+                            FROM audit_Details ad
+                           WHERE     ad.audit_type_id = v_audit_type_id
+                                 AND ad.company_id = v_company_id
+                                 AND ad.audit_seq_no = v_orig_seq_no);
+
+               DBMS_OUTPUT.put_line (
+                     'v_vsl_imo_no '
+                  || v_vessel_imo_no
+                  || 'and  v_vsl_name '
+                  || v_vessel_name);
+             dbms_output.put_line('step9');     
+                  SELECT audit_code, audit_elements
+                 INTO v_ism_code, v_ism_ele
+                 FROM ma_audit_codes
+                WHERE (audit_code, audit_type_id, company_id) IN
+                         (SELECT audit_code, audit_type_id, company_id
+                            FROM audit_findings af
+                           WHERE     audit_seq_no = v_orig_seq_no
+                                 AND company_id = v_company_id
+                                 AND finding_seq_no = v_finding_seq_no
+                                 AND audit_type_id = v_audit_type_id);
+DBMS_OUTPUT.put_line (
+                     'v_ism_code '
+                  || v_ism_code
+                  || ' and v_ism_ele '
+                  || v_ism_ele);
+dbms_output.put_line('step10');
+               SELECT mfc.finding_category_desc
+                 INTO v_find_categ
+                 FROM ma_findings_category mfc
+                WHERE     mfc.finding_category_id = v_finding_category_id
+                      AND mfc.audit_type_id = v_audit_type_id
+                      AND mfc.company_id = v_company_id;
+
+               DBMS_OUTPUT.put_line ('v_find_categ ' || v_find_categ);
+
+               IF :new.AUDIT_TYPE_ID IN (1004, 1005)
+               THEN
+                  audit_desc_msg := 'Review';
+               ELSIF :new.AUDIT_TYPE_ID IN (1003)
+               THEN
+                  audit_desc_msg := 'Inspection';
+               ELSE
+                  audit_desc_msg := 'Audit';
+               END IF;
+dbms_output.put_line('step11');
+               SELECT Muliple_Replace_Fun (
+                         v_subject,
+                         NEW t_text ('Vessel IMO No.__'),
+                         NEW t_text ('Vessel IMO No. ' || v_vessel_imo_no)),
+                      Muliple_Replace_Fun (
+                         v_body,
+                         NEW t_text ('Vessel Name:___',
+                                     'Vessel IMO #:___',
+                                     'Audit Type:___',
+                                     'Audit Subtype:___',
+                                     'ISM Code__',
+                                     'ISM Element___',
+                                     'Latest category____',
+                                     'Due date:___',
+                                     'CAR Update Date:_____',
+                                     'Auditor who has Updated:___ '),
+                         NEW t_text (
+                                'Vessel Name: ' || v_vessel_name,
+                                ' Vessel IMO #: ' || v_vessel_imo_no,
+                                   ' '
+                                || audit_desc_msg
+                                || '  type: '
+                                || v_audit_type_id,
+                                   ' '
+                                || audit_desc_msg
+                                || '  Subtype: '
+                                || v_aud_sub_type,
+                                ' ISM Code ' || v_ism_code,
+                                ' ISM Element ' || v_ism_ele,
+                                ' Latest category ' || v_find_categ,
+                                ' Due date: ' || v_due_date,
+                                ' CAR Update Date: ' || v_date_ins,
+                                ' Auditor who has Updated: ' ||v_user_ins))into v_subject,v_body FROM dual;
+
+
+
+
+                        dbms_output.put_line('step12');
+                        DBMS_OUTPUT.PUT_LINE(v_subject || v_body);
+                        audit_send_mail_prc (
+                     'CAR Maintenance for the audit Cur Audit>> '
+                  || v_cur_audit_seq_no
+                  || ' Origninal Audit>> '
+                  || v_orig_seq_no,
+                  v_company_id,
+                  v_from,
+                  vleadaud,
+                  v_cc || ',' || v_user_ins,
+                  v_subject,
+                  v_body);
+
+
+end if;
+end;
+/

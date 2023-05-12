@@ -1,0 +1,428 @@
+DROP TRIGGER AUDIT_STAG_TEST.AUD_CHEC_AUDIT_STATUS;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."AUD_CHEC_AUDIT_STATUS"
+   AFTER UPDATE OF audit_status_id, make_final
+   ON audit_details
+   FOR EACH ROW
+DECLARE
+   vErrMsg                  VARCHAR2 (200);
+   v_admin                  VARCHAR2 (200);
+   audit_desc_msg           VARCHAR2 (20);
+   v_sub                    VARCHAR2 (500);
+   v_bdy                    VARCHAR2 (1000);
+   v_to                     VARCHAR2 (1000);
+   v_from                   VARCHAR2 (100) := audit_details_pkg.v_From;
+   v_cc                     VARCHAR2 (1000);
+   v_audit_no               NUMBER;
+   v_company_id             NUMBER;
+   v_flag                   NUMBER;
+   v_vessel_imo_no          VARCHAR2 (100);
+   v_audit_sub_typeid       NUMBER;
+   v_audit_type_id          NUMBER;
+   v_certificate_issue_id   NUMBER;
+   v_mgr                    VARCHAR2 (500);
+   v_vessel_name            VARCHAR2 (200);
+   v_official_no            NUMBER;
+   v_check_lockHolder       VARCHAR2 (20);
+   v_identify_status        VARCHAR2 (100);
+   count_value              NUMBER;
+   check_value              VARCHAR2 (100);
+   reopened_reason          VARCHAR2 (4000);
+   reopened_comments        VARCHAR2 (4000);
+   v_reason                 VARCHAR2 (4000);
+   v_err_msg                VARCHAR2 (500);
+   v_auditors               VARCHAR2 (1000);
+   v_reviewer               VARCHAR2 (100);
+BEGIN
+   v_audit_no := :old.audit_seq_no;
+   v_company_id := :old.company_id;
+   v_vessel_imo_no := :old.vessel_imo_no;
+   v_audit_sub_typeid := :old.audit_sub_type_id;
+   v_audit_type_id := :old.audit_type_id;
+   v_certificate_issue_id := :old.certificate_issue_id;
+   v_reason := :new.VOID_REASONS;
+
+   IF v_audit_type_id IN (1004, 1005)
+   THEN
+      audit_desc_msg := 'Review';
+   ELSIF v_audit_type_id IN (1003)
+   THEN
+      audit_desc_msg := 'Inspection';
+   ELSE
+      audit_desc_msg := 'Audit';
+   END IF;
+
+   SELECT listAgg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_mgr
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1003 AND company_id = v_company_id;
+
+   SELECT listAgg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_admin
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1002 AND company_id = v_company_id;
+
+   IF UPDATING ('audit_status_id')
+   THEN
+      IF :OLD.AUDIT_STATUS_ID <> :NEW.AUDIT_STATUS_ID
+      THEN
+         IF (v_reason IS NOT NULL)
+         THEN
+            SELECT REGEXP_COUNT (v_reason, '-') INTO count_value FROM DUAL;
+
+            FOR i IN 1 .. count_value + 1
+            LOOP
+               SELECT REGEXP_SUBSTR (v_reason,
+                                     '[^-]+',
+                                     1,
+                                     i)
+                 INTO check_value
+                 FROM DUAL;
+
+               IF (i = 1)
+               THEN
+                  reopened_reason := check_value;
+               ELSE
+                  SELECT CONCAT (reopened_comments, check_value)
+                    INTO reopened_comments
+                    FROM DUAL;
+
+                  reopened_comments := reopened_comments || '-';
+               END IF;
+            END LOOP;
+
+            SELECT SUBSTR (reopened_comments,
+                           0,
+                           LENGTH (reopened_comments) - 1)
+              INTO reopened_comments
+              FROM DUAL;
+         END IF;
+
+         IF :new.audit_status_id = 1004
+            AND :new.audit_status_id <> :old.audit_status_id
+         THEN
+            UPDATE certificate_detail
+               SET ACTIVE_STATUS = 0
+             WHERE audit_seq_no = v_audit_no AND company_id = v_company_id;
+
+            SELECT subject, body
+              INTO v_sub, v_bdy
+              FROM audit_email_dtls
+             WHERE email_seq = 8;
+
+            SELECT muliple_replace_fun (
+                      v_sub,
+                      NEW t_text ('Audit (Type:__, Subype:__)',
+                                  'Vessel.:__',
+                                  'IMO No.:__',
+                                  'and Official No.:__'),
+                      NEW t_text (
+                                audit_desc_msg
+                             || '(Type: '
+                             || audit_type_desc
+                             || ', Sub Type: '
+                             || audit_subtype_desc
+                             || ')',
+                             'Vessel: ' || v_vessel_name,
+                             'IMO No: ' || v_vessel_imo_no,
+                             '& Official No: ' || v_official_no)),
+                   muliple_replace_fun (
+                      v_bdy,
+                      NEW t_text ('(Audit type)',
+                                  '(Audit Subtype)',
+                                  'Vessel:__',
+                                  'IMO No.:___',
+                                  'and Official No.:___',
+                                  'Admin/ Manager',
+                                  'Reason:___',
+                                  'as ____'),
+                      NEW t_text (
+                             audit_desc_msg || ' type: ' || audit_type_desc,
+                                audit_desc_msg
+                             || ' Subtype: '
+                             || audit_subtype_desc,
+                             'Vessel: ' || v_vessel_name,
+                             'IMO No: ' || v_vessel_imo_no,
+                             '& Official No: ' || v_official_no,
+                             v_check_lockHolder,
+                             'Reason: ' || reopened_reason,
+                             'as ' || reopened_comments))
+              INTO v_sub, v_bdy
+              FROM (SELECT (SELECT audit_type_desc
+                              FROM ma_audit_type
+                             WHERE audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_type_desc,
+                           (SELECT audit_subtype_desc
+                              FROM ma_audit_subtype
+                             WHERE     audit_sub_type_id = v_audit_sub_typeid
+                                   AND audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_subtype_desc,
+                           (SELECT VESSEL_NAME
+                              FROM MA_VESSEL
+                             WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                   AND COMPANY_ID = v_company_id)
+                              v_vessel_name,
+                           (SELECT OFFICIAL_NO
+                              FROM MA_VESSEL
+                             WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                   AND COMPANY_ID = v_company_id)
+                              v_official_no,
+                           (SELECT CASE
+                                      WHEN b.role_id = 1003 THEN 'Manager'
+                                      WHEN b.role_id = 1002 THEN 'Admin'
+                                   END
+                              FROM ma_roles a, ma_user_roles b
+                             WHERE     A.ROLE_ID = B.ROLE_ID
+                                   AND A.COMPANY_ID = B.COMPANY_ID
+                                   AND B.USER_ID = :new.LOCK_HOLDER
+                                   AND B.COMPANY_ID = v_company_id)
+                              v_check_lockHolder
+                      FROM DUAL) test;
+
+            SELECT listagg (a.user_id, ',')
+                      WITHIN GROUP (ORDER BY a.audit_seq_no)
+              INTO v_to
+              FROM audit_auditor_details a
+             WHERE a.audit_role_id IN
+                      (SELECT audit_role_id
+                         FROM ma_audit_roles
+                        WHERE REGEXP_LIKE (audit_role_desc, 'AUDITOR')
+                              AND company_id = v_company_id)
+                   AND A.AUD_LEAD_STATUS = 1
+                   AND a.audit_seq_no = v_audit_no
+                   AND a.audit_seq_no = v_audit_no
+                   AND a.company_id = v_company_id;
+
+            v_to := v_to || ',' || v_mgr;
+
+            v_cc := v_admin;
+
+            v_identify_status := 'Void status ' || v_audit_no;
+         END IF;
+         
+         IF :NEW.audit_status_id = 1005  AND :new.audit_status_id <> :old.audit_status_id
+         THEN
+            SELECT subject, body
+              INTO v_sub, v_bdy
+              FROM audit_email_dtls
+             WHERE email_seq = 54;
+
+            SELECT muliple_replace_fun (
+                      v_sub,
+                      NEW t_text ('Audit/ Inspection/ Review',
+                                  '(Audit Type)',
+                                  '(Audit Subtype)',
+                                  'Vessel IMO No.:_____',
+                                  'Official No.:___'),
+                      NEW t_text (audit_desc_msg,
+                                  audit_type_desc,
+                                  audit_subtype_desc,
+                                  'Vessel IMO No: ' || v_vessel_imo_no,
+                                  'Official No: ' || v_official_no)),
+                   muliple_replace_fun (
+                      v_bdy,
+                      NEW t_text ('Audit/ Inspection/ Review',
+                                  '(Audit Type)',
+                                  '(Audit Subtype)',
+                                  'Vessel:__',
+                                  'IMO No.:___',
+                                  'Official No.:___',
+                                  'Reasons:_____',
+                                  'as _____',
+                                  'Admin/ Manager',
+                                  '(Date)'),
+                      NEW t_text (audit_desc_msg,
+                                  audit_type_desc,
+                                  audit_subtype_desc,
+                                  'Vessel: ' || v_vessel_name,
+                                  'IMO No: ' || v_vessel_imo_no,
+                                  'Official No: ' || v_official_no,
+                                  'Reason: ' || reopened_reason,
+                                  'as ' || reopened_comments,
+                                  v_check_lockHolder,
+                                  (SELECT TO_CHAR (TO_DATE (SYSDATE, 'DD-MM-RRRR'),  'DD-MON-YYYY') FROM DUAL)))
+              INTO v_sub, v_bdy
+              FROM (SELECT (SELECT audit_type_desc
+                              FROM ma_audit_type
+                             WHERE audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_type_desc,
+                           (SELECT audit_subtype_desc
+                              FROM ma_audit_subtype
+                             WHERE     audit_sub_type_id = v_audit_sub_typeid
+                                   AND audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_subtype_desc,
+                           (SELECT VESSEL_NAME
+                              FROM MA_VESSEL
+                             WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                   AND COMPANY_ID = v_company_id)
+                              v_vessel_name,
+                           (SELECT OFFICIAL_NO
+                              FROM MA_VESSEL
+                             WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                   AND COMPANY_ID = v_company_id)
+                              v_official_no,
+                           (SELECT CASE
+                                      WHEN b.role_id = 1003 THEN 'Manager'
+                                      WHEN b.role_id = 1002 THEN 'Admin'
+                                   END
+                              FROM ma_roles a, ma_user_roles b
+                             WHERE     A.ROLE_ID = B.ROLE_ID
+                                   AND A.COMPANY_ID = B.COMPANY_ID
+                                   AND B.USER_ID = :new.LOCK_HOLDER
+                                   AND B.COMPANY_ID = v_company_id)
+                              v_check_lockHolder
+                      FROM DUAL) test;
+
+            SELECT listagg (
+                      CASE
+                         WHEN a.aud_lead_status = 1 THEN a.user_id
+                         WHEN a.audit_role_id = 1003 THEN a.user_id
+                      END,
+                      ',')
+                   WITHIN GROUP (ORDER BY a.audit_seq_no)
+              INTO v_to
+              FROM audit_auditor_details a
+             WHERE a.audit_role_id IN
+                      (SELECT audit_role_id
+                         FROM ma_audit_roles
+                        WHERE REGEXP_LIKE (audit_role_desc,
+                                           'REVIEWER|AUDITOR')
+                              AND company_id = v_company_id)
+                   AND a.audit_seq_no = v_audit_no
+                   AND a.company_id = v_company_id;
+
+
+            v_to := v_to || ',' || v_mgr;
+
+            v_cc := v_admin;
+
+            v_identify_status := 'Audit reopend ' || v_audit_no;
+         END IF;
+
+         IF (v_identify_status IS NOT NULL)
+         THEN
+            audit_send_mail_prc (v_identify_status,
+                                 v_company_id,
+                                 v_from,
+                                 v_to,
+                                 v_cc,
+                                 v_sub,
+                                 v_bdy);
+         END IF;
+      END IF;
+   END IF;
+
+   IF UPDATING ('make_final')
+   THEN
+      IF (:OLD.make_final = 0 AND :NEW.make_final = 1)
+      THEN
+         SELECT subject, body
+           INTO v_sub, v_bdy
+           FROM audit_email_dtls
+          WHERE email_seq = 73;
+
+         SELECT muliple_replace_fun (
+                   v_sub,
+                   NEW t_text ('Audit/Inspection/ Review type:__',
+                               'Subtype:__',
+                               'Vessel:___'),
+                   NEW t_text (
+                          audit_desc_msg || ' Type: ' || audit_type_desc,
+                          'Sub Type: ' || audit_subtype_desc,
+                          'Vessel: ' || v_vessel_name)),
+                muliple_replace_fun (
+                   v_bdy,
+                   NEW t_text ('Audit/Inspection/ Review type:__',
+                               'Subtype:__',
+                               'Vessel:___',
+                               'IMO No.:___',
+                               'Official No.:___'),
+                   NEW t_text (
+                          audit_desc_msg || ' Type: ' || audit_type_desc,
+                          'Sub Type: ' || audit_subtype_desc,
+                          'Vessel: ' || v_vessel_name,
+                          'IMO No: ' || v_vessel_imo_no,
+                          'Official No: ' || v_official_no))
+           INTO v_sub, v_bdy
+           FROM (SELECT (SELECT audit_type_desc
+                           FROM ma_audit_type
+                          WHERE audit_type_id = v_audit_type_id
+                                AND company_id = v_company_id)
+                           audit_type_desc,
+                        (SELECT audit_subtype_desc
+                           FROM ma_audit_subtype
+                          WHERE     audit_sub_type_id = v_audit_sub_typeid
+                                AND audit_type_id = v_audit_type_id
+                                AND company_id = v_company_id)
+                           audit_subtype_desc,
+                        (SELECT VESSEL_NAME
+                           FROM MA_VESSEL
+                          WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                AND COMPANY_ID = v_company_id)
+                           v_vessel_name,
+                        (SELECT OFFICIAL_NO
+                           FROM MA_VESSEL
+                          WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                AND COMPANY_ID = v_company_id)
+                           v_official_no
+                   FROM DUAL) test;
+
+         SELECT listagg (aud.user_id, ',')
+                   WITHIN GROUP (ORDER BY aud.audit_seq_no)
+           INTO v_auditors
+           FROM audit_auditor_details aud
+          WHERE aud.audit_role_id IN
+                   (SELECT audit_role_id
+                      FROM ma_audit_roles
+                     WHERE REGEXP_LIKE (audit_role_desc, 'AUDITOR|OBSERVER')
+                           AND company_id = v_company_id)
+                AND aud.audit_seq_no = v_audit_no
+                AND AUD.AUDIT_TYPE_ID = v_audit_type_id
+                AND aud.company_id = v_company_id;
+
+         SELECT NVL (
+                   (SELECT user_id
+                      FROM audit_auditor_details
+                     WHERE     audit_seq_no = v_audit_no
+                           AND company_id = v_company_id
+                           AND aud_lead_status = 0
+                           AND audit_role_id = 1003),
+                   '')
+           INTO v_reviewer
+           FROM DUAL;
+
+         v_to := v_auditors;
+
+         v_cc := v_reviewer || ',' || v_mgr || ',' || v_admin;
+
+         audit_send_mail_prc ('first time reviewer' || v_audit_no,
+                              v_company_id,
+                              v_from,
+                              v_to,
+                              v_cc,
+                              v_sub,
+                              v_bdy);
+      END IF;
+   END IF;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      SELECT subject
+        INTO v_sub
+        FROM audit_email_dtls
+       WHERE email_seq = 8;
+
+      v_err_msg := SQLERRM || ' ' || DBMS_UTILITY.format_error_backtrace;
+
+      audit_send_mail_prc (p_audit_no     => 'Void status ' || v_audit_no,
+                           p_company_id   => v_company_id,
+                           p_from_mail    => v_from,
+                           p_to_mail      => audit_details_pkg.V_BSOLTEAM,
+                           p_subject      => v_sub,
+                           p_body         => v_err_msg);
+END;
+/

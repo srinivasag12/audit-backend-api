@@ -1,0 +1,10 @@
+DROP TRIGGER AUDIT_STAG_TEST.TRG_UPS_CERT_IHM_DETAIL;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST.trg_ups_cert_ihm_detail
+    -- this trigger is to make vessel type of certificate_ihm_detail table as upper case
+    BEFORE INSERT OR UPDATE ON AUDIT_STAG_TEST.CERTIFICATE_IHM_DETAIL     FOR EACH ROW
+BEGIN
+
+      :NEW.VESSEL_TYPE := UPPER(:NEW.VESSEL_TYPE);
+    END;
+/

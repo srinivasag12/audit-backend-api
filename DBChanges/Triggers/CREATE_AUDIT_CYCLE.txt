@@ -1,0 +1,1000 @@
+DROP TRIGGER LOCAL_AUDIT_CHANGES.CREATE_AUDIT_CYCLE;
+
+CREATE OR REPLACE TRIGGER LOCAL_AUDIT_CHANGES.CREATE_AUDIT_CYCLE
+AFTER INSERT
+ON LOCAL_AUDIT_CHANGES.AUDIT_DETAILS 
+REFERENCING NEW AS NEW OLD AS OLD
+FOR EACH ROW
+DECLARE
+   V_CREDIT_DATE                             DATE;
+   V_NEXT_INTERMEDIATE_START                 DATE;
+   V_NEXT_INTERMEDIATE_END                   DATE;
+   V_NEXT_RENEWAL                            DATE;
+   V_USER_INS                                VARCHAR2 (100);
+   V_DATE_INS                                DATE;
+   v_COUNT                                   NUMBER;
+   v_COUNT2                                  NUMBER;
+   V_ITERATER                                NUMBER;
+   V_ITR_VAL                                 NUMBER;
+   v_COUNT_ITERATION                         NUMBER;
+   V_AUDIT_DATE                              DATE;
+   V_AUDIT_SUB_TYPE_ID                       NUMBER;
+   check_role_id                             NUMBER;
+   V_SUB_ITERATOR                            NUMBER;
+   ROW_EXIT                                  NUMBER;
+   V_RENEWAL_NEXT_CYCLE                      NUMBER;
+   V_RENEWAL_NEXT_CYCLE2                     NUMBER;
+   V_AUDIT_SEQ_NO                            NUMBER;
+   V_LEAD_NAME                               VARCHAR2 (100);
+   ROLE_ID_COUNT                             NUMBER;
+   CYCLE_NEXT_RENEWAL                        AUDIT_CYCLE.NEXT_RENEWAL%TYPE;
+   THREE_MONTH_DATE_CYCLE                    DATE;
+   V_PREV_AUDIT_EXP_DATE                     DATE;
+   V_NEXT_RENEWAL_START                      DATE;
+   V_CYCLE_GEN                               NUMBER;
+   V_HISTORY_GEN_NO                          NUMBER;
+   V_MAX_AUDIT_SEQ_NO                        NUMBER;
+   V_INTERMEDIATE_DUE_DATE                   DATE;
+   V_NEXT_RENEWAL_DUE_DATE                   DATE;
+   VEXIST_DIR_INTERMEADITE                   NUMBER;
+   /*var declared by cb */
+   V_COUNT_FOR_DIR_INTERMEDIATE_ADDITIONAL   NUMBER;
+   V_MAX_SEQ_NO                              NUMBER;
+
+   /*MANAGER CREATED AUDIT CYCLE VARIABLES (M DENOTED THE MANAGER SIDE)*/
+   M_CREATED_AUDIT_CYCLE_COUNT               NUMBER;
+   M_TOTAL_CYCLE_COUNT                       NUMBER;
+   M_AUDIT_CYCLE_HISTORY                     NUMBER;
+BEGIN
+   /* change made by chibi  IRI-5148*/
+   SELECT COUNT (*)
+     INTO ROLE_ID_COUNT
+     FROM MA_USER_ROLES
+    WHERE     ROLE_ID = 1001
+          AND USER_ID = :NEW.USER_INS
+          AND COMPANY_ID = :NEW.COMPANY_ID;
+
+   IF ROLE_ID_COUNT > 0
+   THEN
+      SELECT (FIRST_NAME || ' ' || LAST_NAME)
+        INTO V_LEAD_NAME
+        FROM MA_USERS
+       WHERE USER_ID = :new.USER_INS AND COMPANY_ID = :new.COMPANY_ID;
+   END IF;
+
+   /* change made by chibi  end IRI-5148*/
+
+   /* change made by chibi for cycle gen no */
+   IF :NEW.AUDIT_SUB_TYPE_ID = 1004
+   THEN
+      SELECT MAX (CYCLE_GEN_NO)
+        INTO V_CYCLE_GEN
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND COMPANY_ID = :NEW.COMPANY_ID;
+
+      IF V_CYCLE_GEN IS NULL
+      THEN
+         V_CYCLE_GEN := 1;
+      ELSE
+         V_CYCLE_GEN := V_CYCLE_GEN + 1;
+      END IF;
+   END IF;
+
+   /* change made by chibi for cycle gen no */
+
+   IF :NEW.AUDIT_TYPE_ID IN (1001, 1002, 1003)
+      AND :NEW.AUDIT_SUB_TYPE_ID IN (1001, 1002, 1004, 1003, 1005)
+   THEN
+      SELECT COUNT (*)
+        INTO v_COUNT
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND AUDIT_SEQ_NO IS NULL
+             AND CREDIT_DATE IS NOT NULL;
+
+      SELECT COUNT (*)
+        INTO V_RENEWAL_NEXT_CYCLE
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND AUDIT_SUB_TYPE_ID = 1004;
+
+
+      SELECT COUNT (*)
+        INTO v_COUNT2
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID;
+
+
+
+      SELECT DECODE (V_COUNT2,  0, 0,  1, 1) result INTO ROW_EXIT FROM DUAL;
+
+
+      DBMS_OUTPUT.PUT_LINE ('v_COUNT' || v_COUNT);
+
+      SELECT COUNT (*)
+        INTO V_ITERATER
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND AUDIT_SUB_TYPE_ID = 1004;
+
+      /*  AND AUDIT_SEQ_NO IS NOT NULL; */
+
+      IF (V_ITERATER > 0)
+      THEN
+         V_ITR_VAL := V_ITERATER + 1;
+      ELSE
+         V_ITR_VAL := 1;
+      END IF;
+
+
+      /* decode for additional added by cb */
+      SELECT DECODE (:new.AUDIT_SUB_TYPE_ID,
+                     1001, 1,
+                     1002, 2,
+                     1003, 3,
+                     1004, 4,
+                     1005, 5)
+                result
+        INTO V_SUB_ITERATOR
+        FROM DUAL;
+
+
+
+      SELECT MAX (HISTORY_GEN_NO)
+        INTO V_HISTORY_GEN_NO
+        FROM AUDIT_CYCLE_HISTORY
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND COMPANY_ID = :NEW.COMPANY_ID;
+
+      IF V_HISTORY_GEN_NO IS NULL
+      THEN
+         V_HISTORY_GEN_NO := 1;
+      ELSE
+         V_HISTORY_GEN_NO := V_HISTORY_GEN_NO + 1;
+      END IF;
+
+      /* condition for updating the auditing the audit cycle created by manager into the audit cycle history */
+
+      SELECT COUNT (*)
+        INTO M_TOTAL_CYCLE_COUNT
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID;
+
+/* query to check the manager created audit cycle is there or not in the audit cycle table */
+      SELECT COUNT (*)
+        INTO M_CREATED_AUDIT_CYCLE_COUNT
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND AUDIT_SEQ_NO IS NULL;
+
+/* if manager created audit cycle is there then the below condition is going to excute  */
+      IF :NEW.AUDIT_SUB_TYPE_ID IN (1003, 1005, 1002,1001)
+         AND M_CREATED_AUDIT_CYCLE_COUNT <> 0
+      THEN
+      /* inserting the manager created audit cycle that is present in the audit cycle table into the audit cycle history table */
+         INSERT INTO AUDIT_CYCLE_HISTORY (ITERATOR,
+                                          VESSEL_IMO_NO,
+                                          COMPANY_ID,
+                                          COMPANY_IMO_NO,
+                                          COMPANY_DOC,
+                                          DOC_TYPE_NUMBER,
+                                          AUDIT_TYPE_ID,
+                                          AUDIT_SEQ_NO,
+                                          CREDIT_DATE,
+                                          NEXT_INTERMEDIATE_START,
+                                          NEXT_INTERMEDIATE_END,
+                                          NEXT_RENEWAL,
+                                          ACTIVE_STATUS,
+                                          USER_INS,
+                                          DATE_INS,
+                                          AUDIT_DATE,
+                                          AUDIT_SUB_TYPE_ID,
+                                          ROLE_ID,
+                                          SUB_ITERATOR,
+                                          AUDIT_STATUS_ID,
+                                          CYCLE_SEQ_NO,
+                                          SKIPPED,
+                                          LEAD_NAME,
+                                          CYCLE_GEN_NO,
+                                          NEXT_RENEWAL_START,
+                                          HISTORY_GEN_NO,
+                                          INTERMEDIATE_DUE_DATE,
+                                          NEXT_RENEWAL_DUE_DATE)
+            SELECT ITERATOR,
+                   VESSEL_IMO_NO,
+                   COMPANY_ID,
+                   COMPANY_IMO_NO,
+                   COMPANY_DOC,
+                   DOC_TYPE_NUMBER,
+                   AUDIT_TYPE_ID,
+                   AUDIT_SEQ_NO,
+                   CREDIT_DATE,
+                   NEXT_INTERMEDIATE_START,
+                   NEXT_INTERMEDIATE_END,
+                   NEXT_RENEWAL,
+                   ACTIVE_STATUS,
+                   USER_INS,
+                   DATE_INS,
+                   AUDIT_DATE,
+                   AUDIT_SUB_TYPE_ID,
+                   ROLE_ID,
+                   SUB_ITERATOR,
+                   AUDIT_STATUS_ID,
+                   CYCLE_SEQ_NO,
+                   SKIPPED,
+                   LEAD_NAME,
+                   CYCLE_GEN_NO,
+                   NEXT_RENEWAL_START,
+                   HISTORY_GEN_NO,
+                   INTERMEDIATE_DUE_DATE,
+                   NEXT_RENEWAL_DUE_DATE
+              FROM AUDIT_CYCLE
+             WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                   AND COMPANY_ID = :NEW.COMPANY_ID
+                   AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                   AND AUDIT_SEQ_NO IS NULL;
+
+/* if multiple manager created audit cycle is there in the audit cycle table deleting the duplicated one */
+         SELECT COUNT (*)
+           INTO M_AUDIT_CYCLE_HISTORY
+           FROM AUDIT_CYCLE_HISTORY
+          WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_SEQ_NO IS NULL
+                AND COMPANY_ID = :NEW.COMPANY_ID
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID;
+
+         IF M_AUDIT_CYCLE_HISTORY = 2
+         THEN
+            DELETE FROM AUDIT_CYCLE_HISTORY
+                  WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                        AND AUDIT_SEQ_NO IS NULL
+                        AND COMPANY_ID = :NEW.COMPANY_ID
+                        AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                        AND ROWNUM = 1;
+         END IF;
+      END IF;
+      
+     
+
+      /* condition for updating the auditing the audit cycle created by manager into the audit cycle history  ends*/
+      
+      
+
+      IF     v_COUNT = 0
+         AND ROW_EXIT = 0
+         AND (:new.AUDIT_SUB_TYPE_ID = 1001 OR :new.AUDIT_SUB_TYPE_ID = 1002)
+      THEN
+         /*code commented by cb */
+         /* SELECT COUNT (*)
+            INTO ROLE_ID_COUNT
+            FROM MA_USER_ROLES
+           WHERE     ROLE_ID = 1001
+                 AND USER_ID = :NEW.USER_INS
+                 AND COMPANY_ID = :NEW.COMPANY_ID;
+
+          IF ROLE_ID_COUNT > 0
+          THEN
+             SELECT (FIRST_NAME || ' ' || LAST_NAME)
+               INTO V_LEAD_NAME
+               FROM MA_USERS
+              WHERE USER_ID = :new.USER_INS AND COMPANY_ID = :new.COMPANY_ID;
+          END IF; */
+
+
+         INSERT INTO AUDIT_CYCLE (ITERATOR,
+                                  VESSEL_IMO_NO,
+                                  COMPANY_ID,
+                                  COMPANY_IMO_NO,
+                                  COMPANY_DOC,
+                                  DOC_TYPE_NUMBER,
+                                  AUDIT_TYPE_ID,
+                                  AUDIT_SEQ_NO,
+                                  CREDIT_DATE,
+                                  ACTIVE_STATUS,
+                                  USER_INS,
+                                  DATE_INS,
+                                  AUDIT_DATE,
+                                  AUDIT_SUB_TYPE_ID,
+                                  ROLE_ID,
+                                  SUB_ITERATOR,
+                                  AUDIT_STATUS_ID,
+                                  CYCLE_SEQ_NO,
+                                  LEAD_NAME,
+                                  CYCLE_GEN_NO,
+                                  HISTORY_GEN_NO)
+              VALUES (V_ITR_VAL,
+                      :new.VESSEL_IMO_NO,
+                      :new.COMPANY_ID,
+                      :new.COMPANY_IMO_NO,
+                      :new.COMPANY_DOC,
+                      :new.DOC_TYPE_NUMBER,
+                      :new.AUDIT_TYPE_ID,
+                      :new.AUDIT_SEQ_NO,
+                      :new.CREDIT_DATE,
+                      1,
+                      :new.USER_INS,
+                      :new.DATE_INS,
+                      :new.AUDIT_DATE,
+                      :new.AUDIT_SUB_TYPE_ID,
+                      1001,
+                      V_SUB_ITERATOR,
+                      :new.AUDIT_STATUS_ID,
+                      :new.AUDIT_SEQ_NO,
+                      V_LEAD_NAME,
+                      0,
+                      V_HISTORY_GEN_NO);
+      /* change by cb starts  IRI-5147*/
+      ELSE
+         IF (:new.AUDIT_SUB_TYPE_ID = 1003 OR :new.AUDIT_SUB_TYPE_ID = 1005)
+         /* AND( (M_TOTAL_CYCLE_COUNT >=2) OR  (M_CREATED_AUDIT_CYCLE_COUNT = 0) ) */
+         THEN
+            /*  SELECT MAX(AUDIT_SEQ_NO)
+              INTO V_MAX_AUDIT_SEQ_NO
+              FROM AUDIT_CYCLE
+              WHERE VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+              AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+              AND COMPANY_ID = :NEW.COMPANY_ID; */
+
+            UPDATE AUDIT_CYCLE
+               SET AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO,
+                   AUDIT_DATE = :NEW.AUDIT_DATE,
+                   AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID,
+                   SUB_ITERATOR = V_SUB_ITERATOR,
+                   AUDIT_STATUS_ID = :NEW.AUDIT_STATUS_ID,
+                   USER_INS = :NEW.USER_INS,
+                   ROLE_ID = 1001,
+                   LEAD_NAME = V_LEAD_NAME,
+                   HISTORY_GEN_NO = V_HISTORY_GEN_NO
+             WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                   AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                   AND COMPANY_ID = :NEW.COMPANY_ID
+                   AND CYCLE_SEQ_NO =
+                          (SELECT MAX (CYCLE_SEQ_NO)
+                             FROM AUDIT_CYCLE
+                            WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                                  AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                                  AND COMPANY_ID = :NEW.COMPANY_ID /*  AND ROWNUM = 1 */
+                                                                  )
+                   AND CYCLE_GEN_NO =
+                          (SELECT MAX (CYCLE_GEN_NO)
+                             FROM AUDIT_CYCLE
+                            WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                                  AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                                  AND COMPANY_ID = :NEW.COMPANY_ID /*  AND ROWNUM = 1*/
+                                                                  );
+         /*  AND AUDIT_SEQ_NO = V_MAX_AUDIT_SEQ_NO;           */
+         /*change end by cb IRI-5147*/
+
+
+         /*ELSE
+            UPDATE AUDIT_CYCLE
+               SET AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO,
+                   AUDIT_DATE = :NEW.AUDIT_DATE,
+                   AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID,
+                   SUB_ITERATOR = V_SUB_ITERATOR,
+                   AUDIT_STATUS_ID = :NEW.AUDIT_STATUS_ID,
+                   HISTORY_GEN_NO = V_HISTORY_GEN_NO
+             WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                   /*Change by chibi  IRI-5144*/
+         /*  AND AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID
+           /*change end by chibi IRI-5144**/
+         /*  AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+           AND COMPANY_ID = :NEW.COMPANY_ID
+           AND CYCLE_SEQ_NO =
+                  (SELECT MAX (CYCLE_SEQ_NO)
+                     FROM AUDIT_CYCLE
+                    WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                          AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                          AND COMPANY_ID = :NEW.COMPANY_ID
+                          AND ROWNUM = 1)
+           AND CYCLE_GEN_NO =
+                  (SELECT MAX (CYCLE_GEN_NO)
+                     FROM AUDIT_CYCLE
+                    WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                          AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                          AND COMPANY_ID = :NEW.COMPANY_ID
+                          AND ROWNUM = 1);
+
+
+    UPDATE AUDIT_CYCLE
+       SET CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO
+     WHERE     AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+           AND VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+           AND (CYCLE_SEQ_NO = 1 OR CYCLE_SEQ_NO IS NULL)
+           AND COMPANY_ID = :NEW.COMPANY_ID
+           AND AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID
+           AND ROWNUM = 1;  */
+         END IF;
+      END IF;
+
+
+      DBMS_OUTPUT.PUT_LINE ('V_SUB_ITERATOR' || V_SUB_ITERATOR);
+
+      IF :new.CREDIT_DATE IS NOT NULL
+      THEN
+         V_CREDIT_DATE := :new.CREDIT_DATE;
+
+         IF (:new.AUDIT_SUB_TYPE_ID = 1002)
+         THEN
+            SELECT ADD_MONTHS (V_CREDIT_DATE, 30)
+              INTO V_INTERMEDIATE_DUE_DATE
+              FROM DUAL;
+
+
+            SELECT ADD_MONTHS (V_CREDIT_DATE, 60)
+              INTO V_NEXT_RENEWAL
+              FROM DUAL;
+
+            SELECT V_NEXT_RENEWAL - 1 INTO V_NEXT_RENEWAL FROM DUAL;
+
+            SELECT ADD_MONTHS (V_NEXT_RENEWAL, -36)
+              INTO V_NEXT_INTERMEDIATE_START
+              FROM DUAL;
+
+            SELECT ADD_MONTHS (V_NEXT_RENEWAL, -24)
+              INTO V_NEXT_INTERMEDIATE_END
+              FROM DUAL;
+
+            SELECT ADD_MONTHS (V_NEXT_RENEWAL, -3)
+              INTO V_NEXT_RENEWAL_START
+              FROM DUAL;
+         END IF;
+
+         IF :new.AUDIT_SUB_TYPE_ID = 1001
+         THEN
+            SELECT ADD_MONTHS (V_CREDIT_DATE, 6) INTO V_CREDIT_DATE FROM DUAL;
+
+            SELECT ADD_MONTHS (V_CREDIT_DATE, 30)
+              INTO V_INTERMEDIATE_DUE_DATE
+              FROM DUAL;
+
+
+
+            SELECT ADD_MONTHS (V_CREDIT_DATE, 60)
+              INTO V_NEXT_RENEWAL
+              FROM DUAL;
+
+            SELECT V_NEXT_RENEWAL - 1 INTO V_NEXT_RENEWAL FROM DUAL;
+
+            SELECT ADD_MONTHS (V_NEXT_RENEWAL, -36)
+              INTO V_NEXT_INTERMEDIATE_START
+              FROM DUAL;
+
+            SELECT ADD_MONTHS (V_NEXT_RENEWAL, -24)
+              INTO V_NEXT_INTERMEDIATE_END
+              FROM DUAL;
+
+            SELECT ADD_MONTHS (V_NEXT_RENEWAL, -3)
+              INTO V_NEXT_RENEWAL_START
+              FROM DUAL;
+         END IF;
+
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -30)
+           INTO V_INTERMEDIATE_DUE_DATE
+           FROM DUAL;
+
+
+
+         IF :new.AUDIT_SUB_TYPE_ID <> 1003 AND :new.AUDIT_SUB_TYPE_ID <> 1005
+         THEN
+            UPDATE AUDIT_CYCLE
+               SET CREDIT_DATE = V_CREDIT_DATE,
+                   NEXT_INTERMEDIATE_START = V_NEXT_INTERMEDIATE_START,
+                   NEXT_INTERMEDIATE_END = V_NEXT_INTERMEDIATE_END,
+                   NEXT_RENEWAL = V_NEXT_RENEWAL,
+                   NEXT_RENEWAL_START = V_NEXT_RENEWAL_START,
+                   INTERMEDIATE_DUE_DATE = V_INTERMEDIATE_DUE_DATE,
+                   NEXT_RENEWAL_DUE_DATE = V_NEXT_RENEWAL
+             WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                   AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                   AND COMPANY_ID = :NEW.COMPANY_ID
+                   AND ROLE_ID <> 1003
+                   AND ROLE_ID <> 1002
+                   AND CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO;
+         END IF;
+      END IF;
+   END IF;
+
+
+
+   IF (:new.AUDIT_SUB_TYPE_ID = 1001 OR :new.AUDIT_SUB_TYPE_ID = 1002)
+      AND :NEW.CREDIT_DATE IS NOT NULL
+   THEN
+      /* overding the cycle */
+      UPDATE AUDIT_CYCLE
+         SET CREDIT_DATE = V_CREDIT_DATE,
+             NEXT_INTERMEDIATE_START = V_NEXT_INTERMEDIATE_START,
+             NEXT_INTERMEDIATE_END = V_NEXT_INTERMEDIATE_END,
+             NEXT_RENEWAL = V_NEXT_RENEWAL,
+             NEXT_RENEWAL_START = V_NEXT_RENEWAL_START,
+             INTERMEDIATE_DUE_DATE = V_INTERMEDIATE_DUE_DATE,
+             NEXT_RENEWAL_DUE_DATE = V_NEXT_RENEWAL,
+             AUDIT_DATE = :NEW.AUDIT_DATE,
+             AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID,
+             /*change made by cb*/
+             AUDIT_STATUS_ID = :NEW.AUDIT_STATUS_ID,
+             LEAD_NAME = V_LEAD_NAME,
+             USER_INS = :NEW.USER_INS,
+             CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO,
+             AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO
+       /*change made by cb*/
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND ROLE_ID = 1001
+             AND CYCLE_GEN_NO = 0;
+
+      UPDATE AUDIT_CYCLE
+         SET AUDIT_DATE = V_AUDIT_DATE,
+             AUDIT_SUB_TYPE_ID = V_AUDIT_SUB_TYPE_ID
+       WHERE     COMPANY_ID = :NEW.COMPANY_ID
+             AND ROLE_ID = 1003
+             AND VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND CYCLE_GEN_NO = 0;
+   END IF;
+
+
+   /*  creating next cycle after renewal  */
+
+
+   IF     :new.AUDIT_SUB_TYPE_ID = 1004
+      AND :NEW.CERTIFICATE_ISSUE_ID IS NOT NULL
+      AND :NEW.CERTIFICATE_ISSUE_ID = 1002
+   THEN
+      /* V_AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO; */
+
+      SELECT COUNT (*)
+        INTO ROLE_ID_COUNT
+        FROM MA_USER_ROLES
+       WHERE     ROLE_ID = 1001
+             AND USER_ID = :NEW.USER_INS
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND ROWNUM = 1;
+
+
+      IF ROLE_ID_COUNT > 0
+      THEN
+         SELECT (FIRST_NAME || ' ' || LAST_NAME)
+           INTO V_LEAD_NAME
+           FROM MA_USERS
+          WHERE     USER_ID = :new.USER_INS
+                AND COMPANY_ID = :new.COMPANY_ID
+                AND ROWNUM = 1;
+      END IF;
+
+
+
+      IF :new.AUDIT_SUB_TYPE_ID = 1004
+      THEN
+         /* line commented by cb for cycle gen no */
+         /*SELECT MAX (CYCLE_GEN_NO)
+            INTO V_CYCLE_GEN
+            FROM AUDIT_CYCLE
+           WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                 AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                 AND COMPANY_ID = :NEW.COMPANY_ID;
+
+          IF V_CYCLE_GEN IS NULL
+          THEN
+             V_CYCLE_GEN := 1;
+          ELSE
+             V_CYCLE_GEN := V_CYCLE_GEN + 1;
+          END IF; */
+
+
+
+         INSERT INTO AUDIT_CYCLE (ITERATOR,
+                                  /*change made by cb IRI 5141 */
+                                  AUDIT_SEQ_NO,
+                                  /*change end by cb IRI 5141 */
+                                  VESSEL_IMO_NO,
+                                  COMPANY_ID,
+                                  COMPANY_IMO_NO,
+                                  COMPANY_DOC,
+                                  DOC_TYPE_NUMBER,
+                                  AUDIT_TYPE_ID,
+                                  ACTIVE_STATUS,
+                                  USER_INS,
+                                  DATE_INS,
+                                  AUDIT_DATE,
+                                  AUDIT_SUB_TYPE_ID,
+                                  ROLE_ID,
+                                  SUB_ITERATOR,
+                                  AUDIT_STATUS_ID,
+                                  CYCLE_SEQ_NO,
+                                  CREDIT_DATE,
+                                  LEAD_NAME,
+                                  CYCLE_GEN_NO,
+                                  HISTORY_GEN_NO)
+              VALUES (V_ITR_VAL,
+                      /*change made by cb IRI 5141 */
+                      :new.AUDIT_SEQ_NO,
+                      /*change end cb IRI 5141 */
+                      :new.VESSEL_IMO_NO,
+                      :new.COMPANY_ID,
+                      :new.COMPANY_IMO_NO,
+                      :new.COMPANY_DOC,
+                      :new.DOC_TYPE_NUMBER,
+                      :new.AUDIT_TYPE_ID,
+                      1,
+                      :new.USER_INS,
+                      :new.DATE_INS,
+                      :new.AUDIT_DATE,
+                      :new.AUDIT_SUB_TYPE_ID,
+                      1001,
+                      V_SUB_ITERATOR,
+                      :NEW.AUDIT_STATUS_ID,
+                      :NEW.AUDIT_SEQ_NO,
+                      :NEW.CREDIT_DATE,
+                      V_LEAD_NAME,
+                      V_CYCLE_GEN,
+                      V_HISTORY_GEN_NO);
+      END IF;
+
+
+
+      IF :new.AUDIT_SUB_TYPE_ID = 1004 AND :new.CREDIT_DATE IS NOT NULL
+      THEN
+         SELECT MAX (NEXT_RENEWAL)
+           INTO V_PREV_AUDIT_EXP_DATE
+           FROM AUDIT_CYCLE
+          WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                AND COMPANY_ID = :NEW.COMPANY_ID;
+
+         /*  Dierect Inytermeadite and renewal scenirio Start */
+         IF V_PREV_AUDIT_EXP_DATE IS NULL
+         THEN
+            SELECT ADD_MONTHS (:new.CREDIT_DATE, 60)
+              INTO V_PREV_AUDIT_EXP_DATE
+              FROM DUAL;
+         END IF;
+
+         /*  Dierect Inytermeadite and renewal scenirio End  */
+
+         SELECT ADD_MONTHS (V_PREV_AUDIT_EXP_DATE, -3)
+           INTO THREE_MONTH_DATE_CYCLE
+           FROM DUAL;
+
+
+         IF :NEW.CREDIT_DATE <= THREE_MONTH_DATE_CYCLE
+            AND :NEW.CREDIT_DATE <> THREE_MONTH_DATE_CYCLE
+         THEN
+            SELECT ADD_MONTHS (:new.CREDIT_DATE, 60)
+              INTO V_NEXT_RENEWAL
+              FROM DUAL;
+
+            SELECT V_NEXT_RENEWAL - 1 INTO V_NEXT_RENEWAL FROM DUAL;
+         ELSE
+            ---SELECT  NEXT_RENEWAL INTO THREE_MONTH_DATE_CYCLE  FROM AUDIT_CYCLE WHERE VESSEL_IMO_NO=:NEW.VESSEL_IMO_NO  AND AUDIT_TYPE_ID=:NEW.AUDIT_TYPE_ID  and  ROWNUM=1  order by  NEXT_RENEWAL desc;
+            SELECT ADD_MONTHS (V_PREV_AUDIT_EXP_DATE, 60)
+              INTO V_NEXT_RENEWAL
+              FROM DUAL;
+         END IF;
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -36)
+           INTO V_NEXT_INTERMEDIATE_START
+           FROM DUAL;
+
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -24)
+           INTO V_NEXT_INTERMEDIATE_END
+           FROM DUAL;
+
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -3)
+           INTO V_NEXT_RENEWAL_START
+           FROM DUAL;
+
+
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -30)
+           INTO V_INTERMEDIATE_DUE_DATE
+           FROM DUAL;
+
+
+         UPDATE AUDIT_CYCLE
+            SET CREDIT_DATE = :NEW.CREDIT_DATE,
+                NEXT_INTERMEDIATE_START = V_NEXT_INTERMEDIATE_START,
+                NEXT_INTERMEDIATE_END = V_NEXT_INTERMEDIATE_END,
+                NEXT_RENEWAL = V_NEXT_RENEWAL,
+                NEXT_RENEWAL_START = V_NEXT_RENEWAL_START,
+                INTERMEDIATE_DUE_DATE = V_INTERMEDIATE_DUE_DATE,
+                NEXT_RENEWAL_DUE_DATE = V_NEXT_RENEWAL
+          WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                AND COMPANY_ID = :NEW.COMPANY_ID
+                AND ROLE_ID <> 1003
+                AND ROLE_ID <> 1002
+                AND CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO;
+      END IF;
+   END IF;
+
+   /* Renewal endorsement implementation made by cb */
+   IF     :new.AUDIT_SUB_TYPE_ID = 1004
+      AND :NEW.CERTIFICATE_ISSUE_ID IS NOT NULL
+      AND :NEW.CERTIFICATE_ISSUE_ID = 1007
+   THEN
+      UPDATE AUDIT_CYCLE
+         SET AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO,
+             AUDIT_DATE = :NEW.AUDIT_DATE,
+             AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID,
+             SUB_ITERATOR = V_SUB_ITERATOR,
+             AUDIT_STATUS_ID = :NEW.AUDIT_STATUS_ID,
+             USER_INS = :NEW.USER_INS,
+             ROLE_ID = 1001,
+             LEAD_NAME = V_LEAD_NAME,
+             HISTORY_GEN_NO = V_HISTORY_GEN_NO
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND CYCLE_SEQ_NO =
+                    (SELECT MAX (CYCLE_SEQ_NO)
+                       FROM AUDIT_CYCLE
+                      WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                            AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                            AND COMPANY_ID = :NEW.COMPANY_ID /*  AND ROWNUM = 1 */
+                                                            )
+             AND CYCLE_GEN_NO =
+                    (SELECT MAX (CYCLE_GEN_NO)
+                       FROM AUDIT_CYCLE
+                      WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                            AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                            AND COMPANY_ID = :NEW.COMPANY_ID /*  AND ROWNUM = 1*/
+                                                            );
+   END IF;
+
+   /* renewal endorsement ends */
+
+
+   /***  AUDIT_CYCLE_HISTORY **/
+
+   /*SELECT MAX (CYCLE_GEN_NO)
+     INTO V_CYCLE_GEN
+     FROM AUDIT_CYCLE
+    WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+          AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+          AND COMPANY_ID = :NEW.COMPANY_ID;
+
+   IF V_CYCLE_GEN IS NULL
+   THEN
+      V_CYCLE_GEN := 1;
+   ELSE
+      V_CYCLE_GEN := V_CYCLE_GEN + 1;
+   END IF; */
+
+   IF :NEW.AUDIT_SUB_TYPE_ID = 1001 OR :NEW.AUDIT_SUB_TYPE_ID = 1002
+   THEN
+      V_CYCLE_GEN := 0;
+   END IF;
+
+   /*code by cb for cycle gen no */
+   IF :NEW.AUDIT_SUB_TYPE_ID IN (1003, 1005)
+   THEN
+      SELECT MAX (CYCLE_GEN_NO)
+        INTO V_CYCLE_GEN
+        FROM AUDIT_CYCLE_HISTORY
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND AUDIT_STATUS_ID <> 1004;
+   END IF;
+
+   /*code by cb for cycle gen no */
+
+   SELECT MAX (HISTORY_GEN_NO)
+     INTO V_HISTORY_GEN_NO
+     FROM AUDIT_CYCLE_HISTORY
+    WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+          AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+          AND COMPANY_ID = :NEW.COMPANY_ID;
+
+   IF V_HISTORY_GEN_NO IS NULL
+   THEN
+      V_HISTORY_GEN_NO := 1;
+   ELSE
+      V_HISTORY_GEN_NO := V_HISTORY_GEN_NO + 1;
+   END IF;
+
+   /* code written by cb for direct intermediate and direct additional validation so that the data is not insterted in the audit cycle history */
+   SELECT COUNT (*)
+     INTO V_COUNT_FOR_DIR_INTERMEDIATE_ADDITIONAL
+     FROM AUDIT_CYCLE
+    WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+          AND COMPANY_ID = :NEW.COMPANY_ID
+          AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+          AND AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO;
+
+   /*code by cb ends */
+
+   /* if condition added by cb */
+   IF (V_COUNT_FOR_DIR_INTERMEDIATE_ADDITIONAL <> 0)
+   THEN
+      INSERT INTO AUDIT_CYCLE_HISTORY (ITERATOR,
+                                       VESSEL_IMO_NO,
+                                       COMPANY_ID,
+                                       COMPANY_IMO_NO,
+                                       COMPANY_DOC,
+                                       DOC_TYPE_NUMBER,
+                                       AUDIT_TYPE_ID,
+                                       ACTIVE_STATUS,
+                                       USER_INS,
+                                       DATE_INS,
+                                       AUDIT_DATE,
+                                       AUDIT_SUB_TYPE_ID,
+                                       ROLE_ID,
+                                       SUB_ITERATOR,
+                                       AUDIT_STATUS_ID,
+                                       CYCLE_SEQ_NO,
+                                       CREDIT_DATE,
+                                       LEAD_NAME,
+                                       CYCLE_GEN_NO,
+                                       HISTORY_GEN_NO,
+                                       AUDIT_SEQ_NO)
+           VALUES (1,
+                   :new.VESSEL_IMO_NO,
+                   :new.COMPANY_ID,
+                   :new.COMPANY_IMO_NO,
+                   :new.COMPANY_DOC,
+                   :new.DOC_TYPE_NUMBER,
+                   :new.AUDIT_TYPE_ID,
+                   1,
+                   :new.USER_INS,
+                   :new.DATE_INS,
+                   :new.AUDIT_DATE,
+                   :new.AUDIT_SUB_TYPE_ID,
+                   1001,
+                   V_SUB_ITERATOR,
+                   :NEW.AUDIT_STATUS_ID,
+                   :NEW.AUDIT_SEQ_NO,
+                   :NEW.CREDIT_DATE,
+                   V_LEAD_NAME,
+                   V_CYCLE_GEN,
+                   V_HISTORY_GEN_NO,
+                   :NEW.AUDIT_SEQ_NO);
+   END IF;
+
+   SELECT ADD_MONTHS (V_NEXT_RENEWAL, -30)
+     INTO V_INTERMEDIATE_DUE_DATE
+     FROM DUAL;
+
+
+
+   IF :new.AUDIT_SUB_TYPE_ID <> 1003 AND :new.AUDIT_SUB_TYPE_ID <> 1005
+   THEN
+      UPDATE AUDIT_CYCLE_HISTORY
+         SET CREDIT_DATE = V_CREDIT_DATE,
+             NEXT_INTERMEDIATE_START = V_NEXT_INTERMEDIATE_START,
+             NEXT_INTERMEDIATE_END = V_NEXT_INTERMEDIATE_END,
+             NEXT_RENEWAL = V_NEXT_RENEWAL,
+             NEXT_RENEWAL_START = V_NEXT_RENEWAL_START,
+             INTERMEDIATE_DUE_DATE = V_INTERMEDIATE_DUE_DATE,
+             NEXT_RENEWAL_DUE_DATE = V_NEXT_RENEWAL
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND COMPANY_ID = :NEW.COMPANY_ID
+             AND ROLE_ID <> 1003
+             AND ROLE_ID <> 1002
+             /*change made by chibi */
+             AND AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO;
+   /*  AND AUDIT_SUB_TYPE_ID = :NEW.AUDIT_SUB_TYPE_ID; */
+   /*chnage made by chibi */
+
+   END IF;
+
+   /** renewal endorsement from lead cb*/
+   IF :new.AUDIT_SUB_TYPE_ID = 1004 AND :new.CERTIFICATE_ISSUE_ID = 1007
+   THEN
+      UPDATE AUDIT_CYCLE_HISTORY
+         SET (CREDIT_DATE,
+              NEXT_INTERMEDIATE_START,
+              NEXT_INTERMEDIATE_END,
+              NEXT_RENEWAL,
+              NEXT_RENEWAL_START,
+              INTERMEDIATE_DUE_DATE,
+              NEXT_RENEWAL_DUE_DATE,
+              CYCLE_GEN_NO) =
+                (SELECT CREDIT_DATE,
+                        NEXT_INTERMEDIATE_START,
+                        NEXT_INTERMEDIATE_END,
+                        NEXT_RENEWAL,
+                        NEXT_RENEWAL_START,
+                        INTERMEDIATE_DUE_DATE,
+                        NEXT_RENEWAL_DUE_DATE,
+                        CYCLE_GEN_NO
+                   FROM AUDIT_CYCLE
+                  WHERE AUDIT_SEQ_NO =
+                           (SELECT MAX (AUDIT_SEQ_NO)
+                              FROM AUDIT_CYCLE
+                             WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                                   AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                                   AND COMPANY_ID = :NEW.COMPANY_ID)
+                        AND VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                        AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                        AND COMPANY_ID = :NEW.COMPANY_ID)
+       WHERE CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO
+             AND COMPANY_ID = :NEW.COMPANY_ID;
+   END IF;
+
+   /***  AUDIT_CYCLE_HISTORY END  **/
+
+
+
+   /*  INTERMEADITE OR ADDITIONAL UPDATE AUDIT CYCLE HISTORY DATA */
+   IF :new.AUDIT_SUB_TYPE_ID = 1003 OR :new.AUDIT_SUB_TYPE_ID = 1005
+   THEN
+      /* UPDATE a
+          SET (name, name2) = (SELECT  name, name2
+                   FROM b
+                 );*/
+
+      SELECT COUNT (*)
+        INTO VEXIST_DIR_INTERMEADITE
+        FROM AUDIT_CYCLE
+       WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+             AND COMPANY_ID = :NEW.COMPANY_ID;
+
+
+
+      IF VEXIST_DIR_INTERMEADITE > 0 AND VEXIST_DIR_INTERMEADITE <> 0
+      THEN
+         /*SELECT CYCLE_GEN_NO
+               INTO V_CYCLE_GEN
+               FROM AUDIT_CYCLE
+              WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                    AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                    AND COMPANY_ID = :NEW.COMPANY_ID
+                    AND ROWNUM = 1
+           ORDER BY CYCLE_GEN_NO DESC;*/
+
+         SELECT MAX (AUDIT_SEQ_NO)
+           INTO V_MAX_SEQ_NO
+           FROM AUDIT_CYCLE
+          WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                AND COMPANY_ID = :NEW.COMPANY_ID;
+
+         UPDATE AUDIT_CYCLE_HISTORY
+            SET (CREDIT_DATE,
+                 NEXT_INTERMEDIATE_START,
+                 NEXT_INTERMEDIATE_END,
+                 NEXT_RENEWAL,
+                 NEXT_RENEWAL_START,
+                 INTERMEDIATE_DUE_DATE,
+                 NEXT_RENEWAL_DUE_DATE) =
+                   (SELECT CREDIT_DATE,
+                           NEXT_INTERMEDIATE_START,
+                           NEXT_INTERMEDIATE_END,
+                           NEXT_RENEWAL,
+                           NEXT_RENEWAL_START,
+                           INTERMEDIATE_DUE_DATE,
+                           NEXT_RENEWAL_DUE_DATE
+                      FROM AUDIT_CYCLE
+                     WHERE     AUDIT_SEQ_NO = V_MAX_SEQ_NO
+                           AND VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                           AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                           AND COMPANY_ID = :NEW.COMPANY_ID)
+          WHERE CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO
+                AND COMPANY_ID = :NEW.COMPANY_ID;
+      END IF;
+   END IF;
+END;
+/

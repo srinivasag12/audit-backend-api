@@ -1,0 +1,161 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.USER_ADDED_INTO_AUD (
+   p_status       VARCHAR,
+   p_user_id      VARCHAR,
+   p_companyid    NUMBER)
+AS
+   v_err_msg             VARCHAR2 (200);
+   v_to                VARCHAR2 (10000);
+   v_subject           VARCHAR2 (1000);
+   v_body              VARCHAR2 (30000);
+   v_cc                VARCHAR2 (200);
+   v_bdy               VARCHAR2 (1000);
+   v_from              VARCHAR2 (30) := AUDIT_DETAILS_PKG.v_from;
+   v_app_url           VARCHAR2 (50);
+   v_admin             VARCHAR2 (200);
+   v_user_id           VARCHAR2 (200);
+   v_status            VARCHAR2 (100);
+   v_sequence_number   VARCHAR2(100);
+   v_active_status     VARCHAR2 (100);
+   v_isps_review       VARCHAR2 (100);
+   v_ism_review         VARCHAR2 (100);
+   v_mlc_review         VARCHAR2 (100);
+   v_plan_review         VARCHAR2 (100);
+   v_password          VARCHAR2 (100);
+   v_audit_role_desc   VARCHAR2 (100);
+   v_user              VARCHAR2 (200);
+   v_flag              VARCHAR2 (100);
+   v_company_id NUMBER;
+   v_table_updation number;
+   v_check_roleDesc VARCHAR2 (100);
+   v_region_name VARCHAR2 (100);
+
+   PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+   v_status := p_status;
+   v_user_id := p_user_id;
+   v_company_id := p_companyid;
+   
+   DBMS_OUTPUT.PUT_LINE('v_status' || v_status || ' v_user_id ' || v_user_id  || ' v_company_id ' || v_company_id);
+
+   IF (v_status = 'CREATE')
+   THEN
+      v_flag := 'added';
+   ELSE
+      v_flag := 'updated';
+   END IF;
+
+DBMS_OUTPUT.PUT_LINE('v_flag' || v_flag);
+
+   SELECT A.USER_ID,
+          A.SEQUENCE_NUMBER,
+          A.PASSWORD,
+          CASE WHEN A.ACTIVE_STATUS = 0 THEN 'NO' ELSE 'YES' END,
+           CASE WHEN A. ISM_REVIEW  = 0 THEN 'NO' ELSE 'YES' END,
+            CASE WHEN A.ISPS_REVIEW = 0 THEN 'NO' ELSE 'YES' END,
+          CASE WHEN A.MLC_REVIEW = 0 THEN 'NO' ELSE 'YES' END,
+          CASE WHEN A.PLAN_APPROVAL_REVIEW = 0 THEN 'NO' ELSE 'YES' END,
+          B.ROLE_DESC,
+           D.REGION_NAME
+     INTO v_user,
+          v_sequence_number,
+          v_password,
+          v_active_status,
+          v_ism_review,
+          v_isps_review,
+          v_mlc_review,
+          v_plan_review,
+          v_audit_role_desc,
+          v_region_name
+     FROM MA_USERS A, MA_ROLES B, MA_USER_ROLES C,  MA_REGION D
+    WHERE     A.COMPANY_ID = B.COMPANY_ID
+          AND A.COMPANY_ID = C.COMPANY_ID
+         AND B.ROLE_ID = C.ROLE_ID
+          AND A.USER_ID = C.USER_ID
+          AND A.REGION_ID = D.REGION_ID
+          AND A.USER_ID = v_user_id
+          AND A.COMPANY_ID = v_company_id;
+
+   SELECT a.subject, a.body
+     INTO v_subject, v_bdy
+     FROM audit_email_dtls a
+    WHERE email_seq = 20;
+
+   v_app_url := AUDIT_DETAILS_PKG.V_APP_URL;
+
+   SELECT muliple_replace_fun (v_subject,
+                               NEW t_text ('added'),
+                               NEW t_text (v_flag)),
+          muliple_replace_fun (
+             v_bdy,
+             NEW t_text ('added',
+                         'Application URL is _________',
+                         'Password is ________.',
+                         'Email ID:____________',
+                         'Active Status:  Yes/No',
+                         'ISM Certified: Yes/No',
+                         'ISPS Certified: Yes/No',
+                         'MLC Certified: Yes/No',
+                         'PLAN APPROVAL Certified: Yes/No',
+                         'Region: ____________',
+                         'Role (s): ____________ ',
+                         'ID: _________________'),
+             NEW t_text (v_flag,
+                         'Application URL is :' || v_app_url,
+                         'Password is :' || v_password,
+                         'Email ID: ' || v_user,
+                         'Active Status: ' || v_active_status,
+                         'ISM Certified: ' || v_ism_review,
+                         'ISPS Certified: ' || v_isps_review,
+                         'MLC Certified: ' || v_mlc_review,
+                         'PLAN APPROVAL Certified:' || v_plan_review,
+                         'Region: ' || v_region_name,
+                         'Role (s):' || v_audit_role_desc,
+                         'ID:' || v_sequence_number))
+     INTO v_subject, v_body
+     FROM DUAL;
+
+   SELECT listAgg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_admin
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1002 AND company_id = v_company_id;
+
+   v_cc := v_admin;   
+
+   audit_send_mail_prc ('User Created ' || v_user,
+                        v_company_id,
+                        v_from,
+                        v_user,
+                        v_cc,
+                        v_subject,
+                        v_body);
+
+IF(v_active_status = 'YES') THEN
+audit_send_mail_prc (p_audit_no     => 'User Created ' || v_user,
+                           p_company_id   => v_company_id,
+                           p_from_mail    => audit_details_pkg.v_From,
+                           p_to_mail      => AUDIT_DETAILS_PKG.V_BSOLTEAM,
+                           p_subject      => v_subject,
+                           p_body         => v_body);
+END IF;
+
+                        
+select table_updation  into v_table_updation from master_table_update where table_name='users'and company_id=v_company_id;
+update master_table_update set table_updation=v_table_updation+1 where table_name='users'and company_id=v_company_id;
+
+commit;
+                        
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      NULL;
+      v_err_msg := SQLERRM || ' ' || DBMS_UTILITY.format_error_backtrace;
+      DBMS_OUTPUT.put_line (v_err_msg);
+
+      audit_send_mail_prc (p_audit_no     => 'User Created ',
+                           p_company_id   => v_company_id,
+                           p_from_mail    => audit_details_pkg.v_From,
+                           p_to_mail      => AUDIT_DETAILS_PKG.V_BSOLTEAM,
+                           p_subject      => V_SUBJECT,
+                           p_body         => v_err_msg);
+END;
+/

@@ -1,0 +1,50 @@
+DROP TRIGGER AUDIT_STAG_TEST.DOC_NUMBER_HISTORY_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."DOC_NUMBER_HISTORY_TRG" 
+AFTER INSERT or UPDATE or DELETE
+ON AUDIT_STAG_TEST.MA_VESSEL_COMPANY 
+FOR EACH ROW
+declare 
+
+v_table_updation number;
+
+BEGIN   
+     IF :NEW.DOC_TYPE_NO IS NOT NULL  AND :NEW.DOC_ISSUER IS NOT NULL AND  :NEW.DOC_EXPIRY IS NOT NULL then
+   IF UPDATING THEN
+   if :new.DOC_TYPE_NO<>:old.DOC_TYPE_NO  or :new.DOC_ISSUER<>:old.DOC_ISSUER 
+   or :new.DOC_EXPIRY<>:old.DOC_EXPIRY  or :new.VESSEL_COMPANY_NAME<>:old.VESSEL_COMPANY_NAME  
+   or :new.VESSEL_COMPANY_ADDRESS<>:old.VESSEL_COMPANY_ADDRESS or  :new.COMPANY_STATUS<>:old.COMPANY_STATUS then
+    select table_updation into v_table_updation from master_table_update where table_name='vesselcompany'and company_id=:old.company_id;
+        update master_table_update set table_updation=table_updation+1 where table_name='vesselcompany'and company_id=:old.company_id;
+END IF;
+        IF :NEW.DOC_TYPE_NO <> :OLD.DOC_TYPE_NO THEN                    
+            INSERT INTO DOC_NUMBER_CHANGE (SEQ_NO,COMPANY_IMO_NO,COMPANY_ID,DOC_TYPE_NO,DOC_ISSUER,DOC_EXPIRY,USER_INS,DATE_INS ) values(DOC_HISTORY_SEQ.NEXTVAL,:NEW.COMPANY_IMO_NO,:NEW.COMPANY_ID,:NEW.DOC_TYPE_NO,:NEW.DOC_ISSUER,:NEW.DOC_EXPIRY,:NEW.USER_INS,:NEW.DATE_INS);
+            UPDATE AUDIT_DETAILS  SET DOC_FLAG=0 WHERE COMPANY_ID = :NEW.COMPANY_ID AND AUDIT_STATUS_ID=1001 AND VESSEL_IMO_NO IN(SELECT VESSEL_IMO_NO FROM MA_VESSEL WHERE COMPANY_IMO_NO=:NEW.COMPANY_IMO_NO AND COMPANY_IMO_NO = :NEW.COMPANY_IMO_NO);
+        
+        ELSIF :NEW.DOC_ISSUER <> :OLD.DOC_ISSUER THEN
+            INSERT INTO DOC_NUMBER_CHANGE (SEQ_NO,COMPANY_IMO_NO,COMPANY_ID,DOC_TYPE_NO,DOC_ISSUER,DOC_EXPIRY,USER_INS,DATE_INS ) values(DOC_HISTORY_SEQ.NEXTVAL,:NEW.COMPANY_IMO_NO,:NEW.COMPANY_ID,:NEW.DOC_TYPE_NO,:NEW.DOC_ISSUER,:NEW.DOC_EXPIRY,:NEW.USER_INS,:NEW.DATE_INS);
+        
+        ELSIF :NEW.DOC_EXPIRY <> :OLD.DOC_EXPIRY THEN
+            INSERT INTO DOC_NUMBER_CHANGE (SEQ_NO,COMPANY_IMO_NO,COMPANY_ID,DOC_TYPE_NO,DOC_ISSUER,DOC_EXPIRY,USER_INS,DATE_INS ) values(DOC_HISTORY_SEQ.NEXTVAL,:NEW.COMPANY_IMO_NO,:NEW.COMPANY_ID,:NEW.DOC_TYPE_NO,:NEW.DOC_ISSUER,:NEW.DOC_EXPIRY,:NEW.USER_INS,:NEW.DATE_INS);
+   
+             
+    ELSE
+        INSERT INTO DOC_NUMBER_CHANGE (SEQ_NO,COMPANY_IMO_NO,COMPANY_ID,DOC_TYPE_NO,DOC_ISSUER,DOC_EXPIRY,USER_INS,DATE_INS ) values(DOC_HISTORY_SEQ.NEXTVAL,:NEW.COMPANY_IMO_NO,:NEW.COMPANY_ID,:NEW.DOC_TYPE_NO,:NEW.DOC_ISSUER,:NEW.DOC_EXPIRY,:NEW.USER_INS,:NEW.DATE_INS);
+      END IF;
+    END IF; 
+   if deleting then
+     select table_updation into v_table_updation from master_table_update where table_name='vesselcompany'and company_id=:old.company_id;
+     update master_table_update set table_updation=table_updation+1 where table_name='vesselcompany'and company_id=:old.company_id;
+     end if;
+     if inserting AND :NEW.DOC_TYPE_NO IS NOT NULL  AND :NEW.DOC_ISSUER IS NOT NULL AND  :NEW.DOC_EXPIRY IS NOT NULL  then
+        dbms_output.put_line('inserting');
+INSERT INTO DOC_NUMBER_CHANGE (SEQ_NO,COMPANY_IMO_NO,COMPANY_ID,DOC_TYPE_NO,DOC_ISSUER,DOC_EXPIRY,USER_INS,DATE_INS ) values(DOC_HISTORY_SEQ.NEXTVAL,:NEW.COMPANY_IMO_NO,:NEW.COMPANY_ID,:NEW.DOC_TYPE_NO,:NEW.DOC_ISSUER,:NEW.DOC_EXPIRY,:NEW.USER_INS,:NEW.DATE_INS);
+  
+     select table_updation into v_table_updation from master_table_update where table_name='vesselcompany'and company_id=:new.company_id;
+     --select table_updation into v_table_updation from master_table_updates where table_name='VesselCompany'and company_id=v_company_id;
+     update master_table_update set table_updation=table_updation+1 where table_name='vesselcompany'and company_id=:new.company_id;
+     end if;
+     
+     END IF;
+END;
+/

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+	<property name="DEV_HOME" value="c:/logs" />
+
+	<appender name="FILE-AUDIT"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${DEV_HOME}/centralAPILog.log</file>
+		<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<Pattern>
+				%d{yyyy-MM-dd HH:mm:ss} - %msg%n
+			</Pattern>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+			<!-- rollover daily -->
+			<fileNamePattern>${DEV_HOME}/archived/centralAPILog.%d{yyyy-MM-dd}.%i.log
+                        </fileNamePattern>
+			<timeBasedFileNamingAndTriggeringPolicy
+				class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+				<maxFileSize>10MB</maxFileSize>
+			</timeBasedFileNamingAndTriggeringPolicy>
+		</rollingPolicy>
+	</appender>
+	
+	
+	
+	
+	
+	
+	
+	<appender name="info-logs"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${DEV_HOME}/IRI/info/infologs.log</file>
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+		<level>INFO</level>
+		</filter>
+		<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<Pattern>
+				%d %p  %m%n
+			</Pattern>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<!-- rollover daily -->
+			<fileNamePattern>${DEV_HOME}/IRI/info/infologs.%i.log
+                        </fileNamePattern>
+              <minIndex>1</minIndex>
+        <maxIndex>15</maxIndex>          
+			
+		</rollingPolicy>
+		 <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+        <maxFileSize>10MB</maxFileSize>
+    </triggeringPolicy>
+	</appender>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<appender name="all-logs"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${DEV_HOME}/IRI/all/all.log</file>
+		<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<Pattern>
+					%d %p  %m%n
+			</Pattern>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<!-- rollover daily -->
+			<fileNamePattern>${DEV_HOME}/IRI/all/all.%i.log
+                        </fileNamePattern>
+			 <minIndex>1</minIndex>
+        <maxIndex>15</maxIndex>          
+			
+		</rollingPolicy>
+		 <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+        <maxFileSize>10MB</maxFileSize>
+    </triggeringPolicy>
+	</appender>
+	
+	
+	
+	
+	
+	<appender name="error-logs"
+		class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${DEV_HOME}/IRI/error/errorlogs.log</file>
+		<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+		<level>ERROR</level>
+		</filter>
+		<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+			<Pattern>
+				%d %p  %m%n
+			</Pattern>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+			<!-- rollover daily -->
+			<fileNamePattern>${DEV_HOME}/IRI/error/errorlogs.%i.log
+                        </fileNamePattern>
+              <minIndex>1</minIndex>
+        <maxIndex>15</maxIndex>          
+			
+		</rollingPolicy>
+		 <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+        <maxFileSize>10MB</maxFileSize>
+    </triggeringPolicy>
+	</appender>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	<logger name="com.api.central" level="info"
+		additivity="true">
+		<appender-ref ref="FILE-AUDIT" />
+	</logger>
+	<logger name="log4j.logger.org.springframework.web" level="error"
+		additivity="false">
+		<appender-ref ref="FILE-AUDIT" />
+	</logger>
+	<logger name="log4j.logger.com.mchange.v2" level="error"
+		additivity="false">
+		<appender-ref ref="FILE-AUDIT" />
+	</logger>
+	<logger name="log4j.logger.org.hibernate" level="error"
+		additivity="false">
+		<appender-ref ref="FILE-AUDIT" />
+	</logger>
+
+	<root level="error">
+		<appender-ref ref="FILE-AUDIT" />
+		<appender-ref ref="all-logs" />
+		<appender-ref ref="info-logs" />
+		<appender-ref ref="error-logs" />
+		<!-- <appender-ref ref="debug-logs" /> -->
+		
+		
+		
+	</root>
+
+</configuration>

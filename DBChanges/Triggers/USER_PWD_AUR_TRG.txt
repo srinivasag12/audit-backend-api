@@ -1,0 +1,77 @@
+DROP TRIGGER AUDIT_STAG_TEST.USER_PWD_AUR_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."USER_PWD_AUR_TRG"   
+   BEFORE INSERT OR UPDATE --OF PASSWORD,VERIFICATION_CODE
+   ON AUDIT_STAG_TEST.MA_USERS  FOR EACH ROW
+-- If the Password of the User has been changed successfully, they will get an email notification
+DECLARE
+   V_FROM      VARCHAR2 (100) := AUDIT_DETAILS_PKG.v_from;
+   V_TO        VARCHAR2 (10000);
+   V_SUBJECT   VARCHAR2 (1000);
+   V_BODY      VARCHAR2 (30000);
+   V_CC        VARCHAR2 (50);--:='anjana.s@bsolsystems.com';
+   vVerficationCode VARCHAR2 (100) ;
+PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+
+   CASE
+      WHEN :NEW.PASSWORD<>:OLD.PASSWORD --UPDATING ('PASSWORD')
+      THEN
+         DBMS_OUTPUT.put_line ('PASSWORD change');
+         V_TO := :old.user_id;
+
+         SELECT A.SUBJECT, A.BODY
+           INTO V_SUBJECT, V_BODY
+           FROM audit_email_dtls A
+          WHERE EMAIL_SEQ = 11;
+dbms_output.put_line('user_pwd_aur_trg');
+         AUDIT_SEND_MAIL_PRC ('Password change',       --:new.SEQUENCE_NUMBER,
+                              :new.company_id,
+                              V_FROM,
+                              V_TO,
+                              V_CC,
+                              V_SUBJECT,
+                              V_BODY);
+         
+update master_table_update set table_updation=0 where table_name='User';
+        ELSE
+        NULL;
+        END CASE;
+       /* CASE
+      WHEN :NEW.VERIFICATION_CODE <> :OLD.VERIFICATION_CODE --UPDATING ('VERIFICATION_CODE')
+      THEN
+         DBMS_OUTPUT.put_line ('forgot password');
+         V_TO := :old.user_id;
+         vVerficationCode := :new.VERIFICATION_CODE;
+
+         SELECT A.SUBJECT, A.BODY
+           INTO V_SUBJECT, V_BODY
+           FROM audit_email_dtls A
+          WHERE EMAIL_SEQ = 17;
+          
+            V_BODY:=   V_BODY || ' ' || vVerficationCode;
+
+         AUDIT_SEND_MAIL_PRC ('Forgot Password',
+                              :new.company_id,
+                              V_FROM,
+                              V_TO,
+                              V_CC,
+                              V_SUBJECT,
+                              V_BODY);
+
+      ELSE
+         NULL;
+   END CASE;*/
+
+
+         DBMS_OUTPUT.put_line ('USER change');
+EXCEPTION
+   /*
+   Here log should records whenever changes made on the password
+   */
+   WHEN OTHERS
+   THEN
+      NULL;
+dbms_output.put_line(sqlerrm||' >> '|| DBMS_UTILITY.FORMAT_ERROR_BACKTRACE);      
+END;
+/

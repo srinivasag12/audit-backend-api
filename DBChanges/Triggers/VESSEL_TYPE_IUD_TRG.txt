@@ -1,0 +1,18 @@
+DROP TRIGGER AUDIT_STAG_TEST.VESSEL_TYPE_IUD_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST.vessel_type_iud_trg 
+after insert or delete or update 
+ON AUDIT_STAG_TEST.MA_VESSEL_TYPE 
+begin
+ if inserting then 
+ update master_table_update set table_updation=0 where table_name='VesselType';
+ end if;
+ if deleting then
+ update master_table_update set table_updation=0 where table_name='VesselType';
+ end if;
+
+ if updating then 
+ update master_table_update set table_updation=0 where table_name='VesselType';
+ end if;
+ end ;
+/

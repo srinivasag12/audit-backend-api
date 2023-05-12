@@ -1,0 +1,45 @@
+DROP TRIGGER AUDIT_STAG_TEST.VTRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."VTRG"   
+after delete or update of verification_code  on ma_users
+for each row
+declare 
+vVerficationCode varchar2(100);
+V_SUBJECT varchar2(200);
+V_BODY varchar2(300);
+V_TO VARCHAR2(1000);
+V_FROM VARCHAR2(100):=AUDIT_DETAILS_PKG.v_from;
+V_CC VARCHAR2(100);--:='anjana.s@bsolsystems.com';
+BEGIN
+if updating('verification_code') 
+then
+ CASE
+      WHEN :NEW.VERIFICATION_CODE <> :OLD.VERIFICATION_CODE --UPDATING ('VERIFICATION_CODE')
+      THEN
+         DBMS_OUTPUT.put_line ('forgot password');
+         V_TO := :old.user_id;
+         vVerficationCode := :new.VERIFICATION_CODE;
+
+         SELECT A.SUBJECT, A.BODY
+           INTO V_SUBJECT, V_BODY
+           FROM audit_email_dtls A
+          WHERE EMAIL_SEQ = 17;
+
+            V_BODY:=   V_BODY || ' ' || vVerficationCode;
+            update master_table_update set table_updation=0 where table_name='User';
+dbms_output.put_line('sending mail');
+         AUDIT_SEND_MAIL_PRC ('Forgot Password',
+                              :new.company_id,
+                              V_FROM,
+                              V_TO,
+                              V_CC,
+                              V_SUBJECT,
+                              V_BODY);
+when deleting then
+update master_table_update set table_updation=0 where table_name='User';
+      ELSE
+         NULL;
+   END CASE;
+end if;
+end;
+/

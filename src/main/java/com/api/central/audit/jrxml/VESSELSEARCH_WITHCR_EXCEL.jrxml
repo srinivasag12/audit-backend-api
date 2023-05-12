@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="vesselstatement" columnCount="7" pageWidth="595" pageHeight="842" columnWidth="79" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="97fce4c0-9ce2-4d29-840c-2811609a62ce">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<subDataset name="dataset1" uuid="b048af15-8c49-44d6-873f-69462f89344d"/>
+	<field name="auditTypeDesc" class="java.lang.String"/>
+	<field name="audSubTypeDesc" class="java.lang.String"/>
+	<field name="auditorName" class="java.lang.String">
+		<property name="auditTypeDesc" value="java.lang.String"/>
+		<property name="auditSubTypeDesc" value="java.lang.String"/>
+		<property name="auditorNmae" value="java.lang.String"/>
+	</field>
+	<field name="auditDate" class="java.lang.String"/>
+	<field name="auditStatusDesc" class="java.lang.String"/>
+	<field name="certIssueDate" class="java.lang.String"/>
+	<field name="certExpireDate" class="java.lang.String"/>
+	<variable name="auditTypeDesc_1" class="java.lang.Integer" resetType="Column" calculation="DistinctCount">
+		<variableExpression><![CDATA[$F{auditTypeDesc}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<pageHeader>
+		<band height="50">
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="555" height="50" backcolor="#4CA9E0" uuid="461df943-6309-4459-857c-e146b008bbf5"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true" isUnderline="true"/>
+				</textElement>
+				<text><![CDATA[VESSEL STATEMENT]]></text>
+			</staticText>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="57" splitType="Prevent">
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="129" y="0" width="90" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="7d8c4cd7-90ec-40f8-9b23-cebb70dd3097"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Lead Auditor Name]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="388" y="0" width="86" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="f8ffebad-788f-4336-b1cd-421c9d1fb625"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Certificate Expiration Date
+Issue Date - Expiry Date]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="297" y="0" width="91" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="03f7bb0c-ff5d-4fe5-a610-6a1dc2ee58a5"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Audit Status]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="0" y="0" width="68" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="bec6e23c-edca-45f8-a93c-7e8fbb25b08a"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Audit Type]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="68" y="0" width="61" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="3dd9fd30-9bea-44ff-935f-e40ffa39dbea"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Audit Sub Type]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="219" y="0" width="78" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="31032448-71aa-4660-b9e6-a380616285ea"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Audit Date]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="474" y="0" width="81" height="57" forecolor="#000000" backcolor="#9B99EC" uuid="21d4d7e2-fe48-4c40-b4c4-924249d23f3a"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isUnderline="false"/>
+				</textElement>
+				<text><![CDATA[Next Audit Due
+Issue Date- Expiry Date]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="31" splitType="Stretch">
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="0" y="0" width="68" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="2c59ed62-e451-4e8c-ba12-01174d74523a"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{auditTypeDesc}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="68" y="0" width="61" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="0639a3b5-39ce-494c-8485-fa82fff7cee8"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{audSubTypeDesc}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="129" y="0" width="90" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="148222d4-9dbc-4b6f-9e4f-15d8fe6736a1"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{auditorName}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="297" y="0" width="91" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="b4e3669e-33e2-459b-a8bd-e2d81db633a3"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{auditStatusDesc}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="388" y="0" width="86" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="af73011e-a2c0-4cb9-a4f0-7c60bfc49d47"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{certIssueDate} != null ? $F{certIssueDate}.substring(0,$F{certIssueDate}.indexOf(" "))+"-"+((100+Integer.parseInt($F{certIssueDate}.substring($F{certIssueDate}.indexOf(" ")+1,$F{certIssueDate}.indexOf(","))))+"").substring(1)+"-"+$F{certIssueDate}.substring($F{certIssueDate}.indexOf(",")+2) : "-") + "-" +"       "+ ($F{certExpireDate} !=null ? $F{certExpireDate}.substring(0,$F{certExpireDate}.indexOf(" "))+"-"+((100+Integer.parseInt($F{certExpireDate}.substring($F{certExpireDate}.indexOf(" ")+1,$F{certExpireDate}.indexOf(","))))+"").substring(1)+"-"+$F{certExpireDate}.substring($F{certExpireDate}.indexOf(",")+2) : "-")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="474" y="0" width="81" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="e9a74ee9-d5e2-488b-8648-8d5d2c2eac2f"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($F{certIssueDate} != null ? $F{certIssueDate}.substring(0,$F{certIssueDate}.indexOf(" "))+"-"+((100+Integer.parseInt($F{certIssueDate}.substring($F{certIssueDate}.indexOf(" ")+1,$F{certIssueDate}.indexOf(","))))+"").substring(1)+"-"+$F{certIssueDate}.substring($F{certIssueDate}.indexOf(",")+2) : "-") +   "-"   +    "       " +       ($F{certExpireDate} !=null ? $F{certExpireDate}.substring(0,$F{certExpireDate}.indexOf(" "))+"-"+((100+Integer.parseInt($F{certExpireDate}.substring($F{certExpireDate}.indexOf(" ")+1,$F{certExpireDate}.indexOf(","))))+"").substring(1)+"-"+$F{certExpireDate}.substring($F{certExpireDate}.indexOf(",")+2) : "-")]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement positionType="Float" stretchType="RelativeToBandHeight" mode="Opaque" x="219" y="0" width="78" height="31" forecolor="#003333" backcolor="#FFFFFF" uuid="587cfb24-f87d-4b1f-a698-d8a126f67d72"/>
+				<box>
+					<pen lineWidth="1.0"/>
+					<topPen lineWidth="1.0"/>
+					<leftPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0"/>
+					<rightPen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{auditDate}.substring(0,$F{auditDate}.indexOf(" "))+"-"+((100+Integer.parseInt($F{auditDate}.substring($F{auditDate}.indexOf(" ")+1,$F{auditDate}.indexOf(","))))+"").substring(1)+"-"+$F{auditDate}.substring($F{auditDate}.indexOf(",")+2)]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+</jasperReport>

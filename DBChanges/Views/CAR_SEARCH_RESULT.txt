@@ -1,0 +1,126 @@
+DROP VIEW AUDIT_STAG_TEST.CAR_SEARCH_RESULT;
+
+/* Formatted on 09-08-2022 18:10:31 (QP5 v5.163.1008.3004) */
+CREATE OR REPLACE FORCE VIEW AUDIT_STAG_TEST.CAR_SEARCH_RESULT
+(
+   VESSEL_IMO_NO,
+   COMPANY_ID,
+   AUDIT_DATE,
+   AUDIT_TYPE_ID,
+   AUDIT_SUB_TYPE_ID,
+   AUDIT_SEQ_NO,
+   FINDING_SEQ_NO,
+   AUDIT_CODE,
+   STATUS_SEQ_NO,
+   FINDING_CATEGORY_ID,
+   STATUS_ID,
+   USER_ID,
+   NEXT_ACTION_ID,
+   DUE_DATE
+)
+AS
+   (SELECT TEST.VESSEL_IMO_NO,
+           TEST.COMPANY_ID,
+           TEST.AUDIT_DATE,
+           TEST.AUDIT_TYPE_ID,
+           TEST.AUDIT_SUB_TYPE_ID,
+           TEST.AUDIT_SEQ_NO,
+           TEST.FINDING_SEQ_NO,
+           TEST.AUDIT_CODE,
+           TEST.STATUS_SEQ_NO,
+           TEST.FINDING_CATEGORY_ID,
+           TEST.STATUS_ID,
+           TEST.USER_ID,
+           TEST.NEXT_ACTION_ID,
+           TEST.DUE_DATE
+      FROM (SELECT AD.VESSEL_IMO_NO,
+                   AD.COMPANY_ID,
+                   AD.AUDIT_DATE,
+                   AD.AUDIT_TYPE_ID,
+                   AD.AUDIT_SUB_TYPE_ID,
+                   AD.AUDIT_SEQ_NO,
+                   F.FINDING_SEQ_NO,
+                   F.AUDIT_CODE,
+                   FD.STATUS_SEQ_NO,
+                   FD.FINDING_CATEGORY_ID,
+                   FD.STATUS_ID,
+                   AAD.USER_ID,
+                   FD.NEXT_ACTION_ID,
+                   FD.DUE_DATE
+              FROM AUDIT_DETAILS AD,
+                   AUDIT_FINDINGS F,
+                   AUDIT_FINDINGS_DETAILS FD,
+                   AUDIT_AUDITOR_DETAILS AAD
+             WHERE     AD.ALLOW_NEXT = 1
+                   AND AD.COMPANY_ID = F.COMPANY_ID
+                   AND AD.AUDIT_SEQ_NO = F.AUDIT_SEQ_NO
+                   AND F.FINDING_SEQ_NO = FD.FINDING_SEQ_NO
+                   AND AAD.AUDIT_ROLE_ID = 1001
+                   AND AAD.AUD_LEAD_STATUS = 1
+                   AND AAD.AUDIT_SEQ_NO = F.AUDIT_SEQ_NO
+                   AND ( (F.AUDIT_SEQ_NO = FD.CUR_AUDIT_SEQ_NO
+                          AND FD.ORIG_SEQ_NO = F.AUDIT_SEQ_NO)
+                        OR (F.AUDIT_SEQ_NO = FD.ORIG_SEQ_NO
+                            AND FD.CUR_AUDIT_SEQ_NO = 600000)
+                        OR (F.AUDIT_SEQ_NO = FD.ORIG_SEQ_NO
+                            AND 0 <
+                                   (SELECT COUNT (*)
+                                      FROM AUDIT_DETAILS
+                                     WHERE AD.ALLOW_NEXT = 1
+                                           AND AUDIT_SEQ_NO =
+                                                  FD.CUR_AUDIT_SEQ_NO)))) TEST
+     WHERE TEST.STATUS_SEQ_NO =
+              (  SELECT MAX (STATUS_SEQ_NO)
+                   FROM (SELECT AD.VESSEL_IMO_NO,
+                                AD.COMPANY_ID,
+                                AD.AUDIT_DATE,
+                                AD.AUDIT_TYPE_ID,
+                                AD.AUDIT_SUB_TYPE_ID,
+                                AD.AUDIT_SEQ_NO,
+                                F.FINDING_SEQ_NO,
+                                F.AUDIT_CODE,
+                                FD.STATUS_SEQ_NO,
+                                FD.FINDING_CATEGORY_ID,
+                                FD.STATUS_ID,
+                                AAD.USER_ID,
+                                FD.NEXT_ACTION_ID,
+                                FD.DUE_DATE
+                           FROM AUDIT_DETAILS AD,
+                                AUDIT_FINDINGS F,
+                                AUDIT_FINDINGS_DETAILS FD,
+                                AUDIT_AUDITOR_DETAILS AAD
+                          WHERE AD.ALLOW_NEXT = 1
+                                AND AD.COMPANY_ID =
+                                       F.COMPANY_ID
+                                AND AD.AUDIT_SEQ_NO =
+                                       F.AUDIT_SEQ_NO
+                                AND F.FINDING_SEQ_NO =
+                                       FD.FINDING_SEQ_NO
+                                AND AAD.AUDIT_SEQ_NO =
+                                       F.AUDIT_SEQ_NO
+                                AND AAD.AUDIT_ROLE_ID = 1001
+                                AND AAD.AUD_LEAD_STATUS = 1
+                                AND ( (F.AUDIT_SEQ_NO =
+                                          FD.CUR_AUDIT_SEQ_NO
+                                       AND FD.ORIG_SEQ_NO =
+                                              F.AUDIT_SEQ_NO)
+                                     OR (F.AUDIT_SEQ_NO =
+                                            FD.ORIG_SEQ_NO
+                                         AND FD.CUR_AUDIT_SEQ_NO =
+                                                600000)
+                                     OR (F.AUDIT_SEQ_NO =
+                                            FD.ORIG_SEQ_NO
+                                         AND 0 <
+                                                (SELECT COUNT (
+                                                           *)
+                                                   FROM AUDIT_DETAILS
+                                                  WHERE AD.ALLOW_NEXT =
+                                                           1
+                                                        AND AUDIT_SEQ_NO =
+                                                               FD.CUR_AUDIT_SEQ_NO))))
+               GROUP BY AUDIT_SEQ_NO, FINDING_SEQ_NO, COMPANY_ID
+                 HAVING TEST.AUDIT_SEQ_NO = AUDIT_SEQ_NO
+                        AND TEST.FINDING_SEQ_NO = FINDING_SEQ_NO));
+
+
+GRANT INSERT, SELECT, UPDATE ON AUDIT_STAG_TEST.CAR_SEARCH_RESULT TO AUDIT_PROD_LOG;

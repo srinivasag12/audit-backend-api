@@ -1,0 +1,367 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.AUDIT_VOID_OR_NOTAPPROVED (
+   p_audit_status_id      NUMBER,
+   p_audit_sub_type_id    NUMBER,
+   p_audit_seq_no         NUMBER,
+   p_company_id           NUMBER,
+   p_vessel_imo_no        NUMBER,
+   p_audit_type_id        NUMBER)
+AS
+   v_audit_status_id          NUMBER;
+   v_audit_sub_type_id        NUMBER;
+   v_audit_seq_no             NUMBER;
+   v_cert_issue_id            NUMBER;
+   v_cert_no                  VARCHAR2 (50);
+   v_vessel_imo_no            NUMBER;
+   v_audit_type_id            NUMBER;
+   v_prev_audit_seq_no        NUMBER;
+   v_prev_audit_sub_type_id   NUMBER;
+   v_company_id               NUMBER;
+   v_prev_cert_issue_id       NUMBER;
+   v_audit_seq_inorenewal     NUMBER;
+   v_prev_cert_no             VARCHAR2 (50);
+   v_prev_seq_no              NUMBER;
+   v_prev_less_cert_no        VARCHAR2 (50);
+   v_prev_max_seq_no          NUMBER;
+   v_check_endrosed           VARCHAR2 (10);
+   v_select_query             VARCHAR2 (4000);
+   v_count_val                NUMBER;
+   v_flag                     VARCHAR2 (10);
+
+   PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+   v_audit_status_id := p_audit_status_id;
+   v_audit_sub_type_id := p_audit_sub_type_id;
+   v_audit_seq_no := p_audit_seq_no;
+   v_company_id := p_company_id;
+   v_vessel_imo_no := p_vessel_imo_no;
+   v_audit_type_id := p_audit_type_id;
+
+
+   IF (v_audit_status_id = 1004 AND v_audit_sub_type_id IN (1003, 1005))
+   THEN
+      FOR I
+         IN (SELECT A.CERTIFICATE_ISSUE_ID, A.CERTIFICATE_NO
+               FROM CERTIFICATE_DETAIL A
+              WHERE     A.VESSEL_IMO_NO = v_vessel_imo_no
+                    AND A.AUDIT_SEQ_NO = v_audit_seq_no
+                    AND COMPANY_ID = v_company_id
+                    AND A.AUDIT_SUB_TYPE_ID IN (1003, 1005))
+      LOOP
+         v_cert_issue_id := I.CERTIFICATE_ISSUE_ID;
+         v_cert_no := I.CERTIFICATE_NO;
+
+
+         IF (v_cert_issue_id = 1008)
+         THEN
+            SELECT CERTIFICATE_NO
+              INTO v_prev_cert_no
+              FROM (  SELECT CERTIFICATE_NO
+                        FROM CERTIFICATE_DETAIL
+                       WHERE     VESSEL_IMO_NO = v_vessel_imo_no
+                             AND COMPANY_ID = v_company_id
+                             AND AUDIT_TYPE_ID = v_audit_type_id
+                             AND CERTIFICATE_NO <> v_cert_no
+                             AND CERTIFICATE_ISSUE_ID NOT IN (1003)
+                             AND AUDIT_SEQ_NO =
+                                    (SELECT AUD.AUDIT_SEQ_NO
+                                       FROM AUDIT_DETAILS AUD
+                                      WHERE AUD.VESSEL_IMO_NO = v_vessel_imo_no
+                                            AND AUD.COMPANY_ID = v_company_id
+                                            AND AUD.AUDIT_STATUS_ID <> 1004
+                                            AND AUD.AUDIT_SEQ_NO =
+                                                   (WITH getAuditSeqNo
+                                                         AS (  SELECT DISTINCT
+                                                                      (AUDIT_SEQ_NO)
+                                                                 FROM CERTIFICATE_DETAIL
+                                                                WHERE VESSEL_IMO_NO =
+                                                                         v_vessel_imo_no
+                                                                      AND COMPANY_ID =
+                                                                             v_company_id
+                                                                      AND AUDIT_TYPE_ID =
+                                                                             v_audit_type_id
+                                                                      AND AUDIT_SUB_TYPE_ID IN
+                                                                             (1002,
+                                                                              1004)
+                                                                      AND CERTIFICATE_NO =
+                                                                             v_cert_no
+                                                             ORDER BY audit_Seq_no DESC)
+                                                    SELECT DISTINCT
+                                                           (a.audit_Seq_no)
+                                                      FROM certificate_detail a,
+                                                           getAuditSeqNo b
+                                                     WHERE A.AUDIT_SEQ_NO =
+                                                              b.audit_seq_no
+                                                           AND A.company_id =
+                                                                  v_company_id
+                                                           AND A.VESSEL_IMO_NO =
+                                                                  v_vessel_imo_no
+                                                           AND A.CERTIFICATE_ISSUE_ID =
+                                                                  1002))
+                    ORDER BY SEQ_NO DESC)
+             WHERE ROWNUM = 1;
+
+            FOR AD
+               IN (  SELECT DISTINCT (AUDIT_SEQ_NO), AUDIT_SUB_TYPE_ID
+                       FROM CERTIFICATE_DETAIL
+                      WHERE     CERTIFICATE_NO = v_prev_cert_no
+                            AND VESSEL_IMO_NO = v_vessel_imo_no
+                            AND COMPANY_ID = v_company_id
+                            AND AUDIT_TYPE_ID = v_audit_type_id
+                   ORDER BY audit_seq_no DESC)
+            LOOP
+               v_prev_audit_seq_no := AD.AUDIT_SEQ_NO;
+               v_prev_audit_sub_type_id := AD.AUDIT_SUB_TYPE_ID;
+
+               IF (v_prev_audit_sub_type_id IN (1003, 1005))
+               THEN
+                  SELECT COUNT (*)
+                    INTO v_count_val
+                    FROM (SELECT seq_no, certificate_no, maxSeq
+                            FROM (  SELECT cert.seq_no AS seq_no,
+                                           cert.certificate_no,
+                                           mseq.maxSeq AS maxSeq
+                                      FROM    certificate_detail cert
+                                           JOIN
+                                              (SELECT audit_Seq_no, maxSeq
+                                                 FROM (  SELECT audit_seq_no,
+                                                                seq_no AS maxSeq
+                                                           FROM certificate_detail
+                                                          WHERE AUDIT_SEQ_NO =
+                                                                   v_prev_audit_seq_no
+                                                                AND VESSEL_IMO_NO =
+                                                                       v_vessel_imo_no
+                                                                AND COMPANY_ID =
+                                                                       v_company_id
+                                                                AND certificate_no =
+                                                                       v_prev_cert_no
+                                                       ORDER BY seq_no DESC)
+                                                WHERE ROWNUM = 1) mseq
+                                           ON cert.audit_seq_no =
+                                                 mseq.audit_seq_no
+                                     WHERE cert.AUDIT_SEQ_NO =
+                                              v_prev_audit_seq_no
+                                           AND cert.VESSEL_IMO_NO =
+                                                  v_vessel_imo_no
+                                           AND CERT.CERTIFICATE_ISSUE_ID = 1008
+                                           AND cert.COMPANY_ID = v_company_id
+                                           AND CERT.CERTIFICATE_NO =
+                                                  v_prev_cert_no
+                                  ORDER BY cert.seq_no DESC)
+                           WHERE ROWNUM = 1);
+
+                  IF (v_count_val > 0)
+                  THEN
+                     SELECT seq_no, certificate_no, maxSeq
+                       INTO v_prev_seq_no,
+                            v_prev_less_cert_no,
+                            v_prev_max_seq_no
+                       FROM (  SELECT cert.seq_no AS seq_no,
+                                      cert.certificate_no,
+                                      mseq.maxSeq AS maxSeq
+                                 FROM    certificate_detail cert
+                                      JOIN
+                                         (SELECT audit_Seq_no, maxSeq
+                                            FROM (  SELECT audit_seq_no,
+                                                           seq_no AS maxSeq
+                                                      FROM certificate_detail
+                                                     WHERE AUDIT_SEQ_NO =
+                                                              v_prev_audit_seq_no
+                                                           AND VESSEL_IMO_NO =
+                                                                  v_vessel_imo_no
+                                                           AND COMPANY_ID =
+                                                                  v_company_id
+                                                           AND certificate_no =
+                                                                  v_prev_cert_no
+                                                  ORDER BY seq_no DESC)
+                                           WHERE ROWNUM = 1) mseq
+                                      ON cert.audit_seq_no = mseq.audit_seq_no
+                                WHERE cert.AUDIT_SEQ_NO = v_prev_audit_seq_no
+                                      AND cert.VESSEL_IMO_NO = v_vessel_imo_no
+                                      AND CERT.CERTIFICATE_ISSUE_ID = 1008
+                                      AND cert.COMPANY_ID = v_company_id
+                                      AND CERT.CERTIFICATE_NO = v_prev_cert_no
+                             ORDER BY cert.seq_no DESC)
+                      WHERE ROWNUM = 1;
+
+                     UPDATE certificate_detail
+                        SET active_status = 1
+                      WHERE     audit_seq_no = v_prev_audit_seq_no
+                            AND VESSEL_IMO_NO = v_vessel_imo_no
+                            AND COMPANY_ID = v_company_id
+                            AND seq_no = v_prev_seq_no;
+
+                     COMMIT;
+
+                     v_flag := 'true';
+
+
+                     IF (v_prev_seq_no <> v_prev_max_seq_no)
+                     THEN
+                        v_check_endrosed := 'yes';
+                     END IF;
+                  ELSE
+                     v_check_endrosed := 'yes';
+                  END IF;
+               ELSE
+                  SELECT COUNT (*)
+                    INTO v_count_val
+                    FROM (SELECT seq_no, certificate_no, maxSeq
+                            FROM (  SELECT cert.seq_no AS seq_no,
+                                           cert.certificate_no,
+                                           mseq.maxSeq AS maxSeq
+                                      FROM    certificate_detail cert
+                                           JOIN
+                                              (SELECT audit_Seq_no, maxSeq
+                                                 FROM (  SELECT audit_seq_no,
+                                                                seq_no AS maxSeq
+                                                           FROM certificate_detail
+                                                          WHERE AUDIT_SEQ_NO =
+                                                                   v_prev_audit_seq_no
+                                                                AND VESSEL_IMO_NO =
+                                                                       v_vessel_imo_no
+                                                                AND COMPANY_ID =
+                                                                       v_company_id
+                                                                AND certificate_no =
+                                                                       v_prev_cert_no
+                                                       ORDER BY seq_no DESC)
+                                                WHERE ROWNUM = 1) mseq
+                                           ON cert.audit_seq_no =
+                                                 mseq.audit_seq_no
+                                     WHERE cert.AUDIT_SEQ_NO =
+                                              v_prev_audit_seq_no
+                                           AND cert.VESSEL_IMO_NO =
+                                                  v_vessel_imo_no
+                                           AND CERT.CERTIFICATE_ISSUE_ID IN
+                                                  (1002, 1008)
+                                           AND cert.COMPANY_ID = v_company_id
+                                           AND CERT.CERTIFICATE_NO =
+                                                  v_prev_cert_no
+                                  ORDER BY cert.seq_no DESC)
+                           WHERE ROWNUM = 1);
+
+                  IF (v_count_val > 0)
+                  THEN
+                     SELECT seq_no, certificate_no, maxSeq
+                       INTO v_prev_seq_no,
+                            v_prev_less_cert_no,
+                            v_prev_max_seq_no
+                       FROM (  SELECT cert.seq_no AS seq_no,
+                                      cert.certificate_no,
+                                      mseq.maxSeq AS maxSeq
+                                 FROM    certificate_detail cert
+                                      JOIN
+                                         (SELECT audit_Seq_no, maxSeq
+                                            FROM (  SELECT audit_seq_no,
+                                                           seq_no AS maxSeq
+                                                      FROM certificate_detail
+                                                     WHERE AUDIT_SEQ_NO =
+                                                              v_prev_audit_seq_no
+                                                           AND VESSEL_IMO_NO =
+                                                                  v_vessel_imo_no
+                                                           AND COMPANY_ID =
+                                                                  v_company_id
+                                                           AND certificate_no =
+                                                                  v_prev_cert_no
+                                                  ORDER BY seq_no DESC)
+                                           WHERE ROWNUM = 1) mseq
+                                      ON cert.audit_seq_no = mseq.audit_seq_no
+                                WHERE cert.AUDIT_SEQ_NO = v_prev_audit_seq_no
+                                      AND cert.VESSEL_IMO_NO = v_vessel_imo_no
+                                      AND CERT.CERTIFICATE_ISSUE_ID IN
+                                             (1002, 1008)
+                                      AND cert.COMPANY_ID = v_company_id
+                                      AND CERT.CERTIFICATE_NO = v_prev_cert_no
+                             ORDER BY cert.seq_no DESC)
+                      WHERE ROWNUM = 1;
+
+                     UPDATE certificate_detail
+                        SET active_status = 1
+                      WHERE     audit_seq_no = v_prev_audit_seq_no
+                            AND VESSEL_IMO_NO = v_vessel_imo_no
+                            AND COMPANY_ID = v_company_id
+                            AND seq_no = v_prev_seq_no;
+
+                     COMMIT;
+
+                     v_flag := 'true';
+
+                     COMMIT;
+
+                     IF (v_prev_seq_no <> v_prev_max_seq_no
+                         AND v_prev_max_seq_no > v_prev_seq_no)
+                     THEN
+                        v_check_endrosed := 'yes';
+                     END IF;
+                  ELSE
+                     v_check_endrosed := 'yes';
+                  END IF;
+               END IF;
+
+               IF (v_check_endrosed = 'yes')
+               THEN
+                  UPDATE certificate_detail
+                     SET active_status = 1
+                   WHERE     audit_seq_no = v_prev_audit_seq_no
+                         AND VESSEL_IMO_NO = v_vessel_imo_no
+                         AND COMPANY_ID = v_company_id
+                         AND seq_no = (SELECT seq_no
+                                         FROM (  SELECT seq_no AS seq_no
+                                                   FROM certificate_detail
+                                                  WHERE audit_seq_no =
+                                                           v_prev_audit_seq_no
+                                                        AND VESSEL_IMO_NO =
+                                                               v_vessel_imo_no
+                                                        AND COMPANY_ID =
+                                                               v_company_id
+                                                        AND CERTIFICATE_NO =
+                                                               v_prev_cert_no
+                                                        AND CERTIFICATE_ISSUE_ID <>
+                                                               1003
+                                               ORDER BY seq_no DESC)
+                                        WHERE ROWNUM = 1);
+
+                  UPDATE certificate_detail
+                     SET active_status = 1
+                   WHERE     audit_seq_no = v_prev_audit_seq_no
+                         AND VESSEL_IMO_NO = v_vessel_imo_no
+                         AND COMPANY_ID = v_company_id
+                         AND seq_no = (SELECT seq_no
+                                         FROM (  SELECT seq_no AS seq_no
+                                                   FROM certificate_detail
+                                                  WHERE audit_seq_no =
+                                                           v_prev_audit_seq_no
+                                                        AND VESSEL_IMO_NO =
+                                                               v_vessel_imo_no
+                                                        AND COMPANY_ID =
+                                                               v_company_id
+                                                        AND CERTIFICATE_NO =
+                                                               v_prev_cert_no
+                                                        AND CERTIFICATE_ISSUE_ID =
+                                                               1003
+                                               ORDER BY seq_no DESC)
+                                        WHERE ROWNUM = 1);
+
+                  v_flag := 'true';
+               END IF;
+            END LOOP;
+
+            IF (v_flag = 'true')
+            THEN
+               DELETE FROM certificate_detail
+                     WHERE     certificate_no = v_cert_no
+                           AND vessel_imo_no = v_vessel_imo_no
+                           AND audit_type_id = v_audit_type_id
+                           AND audit_seq_no <> v_audit_seq_no
+                           AND company_id = v_company_id;
+            END IF;
+
+            COMMIT;
+         END IF;
+      END LOOP;
+   END IF;
+EXCEPTION
+   WHEN NO_DATA_FOUND
+   THEN
+      DBMS_OUTPUT.PUT_LINE ('No Data Found');
+END;
+/

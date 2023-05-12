@@ -1,0 +1,136 @@
+DROP TRIGGER AUDIT_STAG_TEST.AUDIT_CREATE_TRG1;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."AUDIT_CREATE_TRG1"   
+    after INSERT ON AUDIT_STAG_TEST.AUDIT_AUDITOR_DETAILS     FOR EACH ROW
+DECLARE
+   v_from             VARCHAR2 (50):= audit_details_pkg.v_From;
+   v_to               VARCHAR2 (100);
+   v_sub              VARCHAR2 (1000);
+   v_subject        VARCHAR2(1000);
+   v_body             VARCHAR2 (1000);
+   v_bdy             VARCHAR2 (1000);
+   v_cc               VARCHAR2 (100);-- := AUDIT_DETAILS_PKG.V_ADMIN;
+   v_vessel_imo       VARCHAR2 (30);
+   v_audit_type_id       VARCHAR2 (30);
+   v_audit_sub_type   VARCHAR2 (30);
+   v_certificate_issue_id   NUMBER(10);
+   v_company_id         NUMBER(8);
+   v_err_msg            VARCHAR2(1000);
+   v_role_id                NUMBER(8);
+   v_user        VARCHAR2 (30);
+
+   PRAGMA AUTONOMOUS_TRANSACTION;
+
+BEGIN
+    --IF INSERTING THEN
+    select user_id into v_cc from ma_user_roles where role_id=1002;
+       SELECT COUNT(*) INTO v_role_id FROM MA_USER_ROLES USRL WHERE USRL.USER_ID = :new.USER_INS AND USRL.ROLE_ID = 1001;  
+
+       IF  v_role_id > 0 /*:NEW.AUD_LEAD_STATUS = 0 AND*/  THEN
+
+            v_audit_type_id := :NEW.AUDIT_TYPE_ID;
+            v_company_id := :NEW.COMPANY_ID;
+
+            SELECT VESSEL_IMO_NO,AUDIT_SUB_TYPE_ID,CERTIFICATE_ISSUE_ID INTO v_vessel_imo,v_audit_sub_type, v_certificate_issue_id
+            FROM AUDIT_DETAILS WHERE AUDIT_SEQ_NO = :NEW.AUDIT_SEQ_NO AND COMPANY_ID= :NEW.COMPANY_ID AND AUDIT_TYPE_ID = v_audit_type_id;
+
+            DBMS_OUTPUT.PUT_LINE(v_vessel_imo||' >> '||v_audit_sub_type||' >> '|| v_certificate_issue_id);
+
+            SELECT subject, body
+            INTO v_sub, v_bdy
+            FROM audit_email_dtls
+            WHERE email_seq = 4;
+
+            SELECT muliple_replace_fun (
+                   v_sub,
+                   NEW t_text ('Audit Type:__',
+                               'Vessel IMO No.:__',
+                               'Certificate#:__'),
+                   NEW t_text ('Audit Type: ' || audit_type_desc,
+                               'Vessel IMO No.:' || v_vessel_imo,
+                               'Certificate#:' || certificate_issue_desc)),
+                muliple_replace_fun (
+                   v_bdy,
+                   NEW t_text ('Audit type__',
+                               'Vessel IMO No__',
+                               'Audit Subtype__',
+                               'succeessfully by __(Whom)__'),
+                   NEW t_text ('Audit type ' || audit_type_desc,
+                               'Vessel IMO No ' ||v_vessel_imo,
+                               'Audit Subtype ' || audit_subtype_desc,
+                               'successfully by ' || user_name))
+           INTO v_subject, v_body
+           FROM (SELECT (SELECT mcert.certificate_issue_desc
+                           FROM ma_certificate_issued mcert
+                          WHERE mcert.certificate_issue_id = v_certificate_issue_id
+                                AND mcert.audit_type_id = v_audit_type_id
+                                AND mcert.company_id = v_company_id)
+                           certificate_issue_desc,
+                        (SELECT maud.audit_type_desc
+                           FROM ma_audit_type maud
+                          WHERE maud.audit_type_id = v_audit_type_id
+                                AND maud.company_id = v_company_id)
+                           audit_type_desc,
+                        (SELECT msub.audit_subtype_desc
+                           FROM ma_audit_subtype msub
+                          WHERE msub.audit_sub_type_id = v_audit_sub_type
+                                AND msub.audit_type_id = v_audit_type_id
+                                AND msub.company_id = v_company_id)
+                           audit_subtype_desc,
+                        (SELECT first_name || ' ' || last_name
+                           FROM ma_users mu
+                          WHERE   mu.user_id = :NEW.user_id AND :NEW.AUD_LEAD_STATUS = 1
+                                AND mu.company_id = v_company_id)
+                           user_name
+                   FROM DUAL) test;                 
+
+                   SELECT listagg (mus.user_id, ',')
+                   WITHIN GROUP (ORDER BY mus.sequence_number)
+                   INTO v_to
+                   FROM  ma_users mus
+                   WHERE :NEW.user_id = mus.sequence_number AND :NEW.company_id = mus.company_id;
+
+                   audit_send_mail_prc ('New Audit ' || :NEW.AUDIT_SEQ_NO,
+                              v_company_id,
+                              v_from,
+                              v_to,
+                              v_cc,
+                              v_subject,
+                              v_body);
+            END IF;
+      --   END IF;
+      EXCEPTION
+        WHEN OTHERS
+        THEN
+
+        v_err_msg := SQLERRM||' '||DBMS_UTILITY.format_error_backtrace;
+        DBMS_OUTPUT.PUT_LINE(v_err_msg);
+
+   SELECT USER INTO v_user FROM DUAL;
+
+      INSERT INTO audit_email_log_dtls (email_seq,
+                                        access_link,
+                                        from_mail,
+                                        to_mail,
+                                        cc_mail,
+                                        subject,
+                                        MESSAGE,
+                                        status,
+                                        error_message,
+                                        company_id,
+                                        user_ins)
+           VALUES (audit_email_dtls_seq.NEXTVAL,
+                   :NEW.AUDIT_SEQ_NO,
+                   v_from,
+                   v_to,
+                   v_cc,
+                   v_subject,
+                   v_body,
+                   'Failed',
+                   v_err_msg,
+                   v_company_id,
+                   v_user);
+
+commit;
+END;
+/

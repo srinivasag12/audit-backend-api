@@ -1,0 +1,38 @@
+DROP TRIGGER AUDIT_STAG_TEST.CHECK_AUDIT_VESSEL_DTLS_FLAG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."CHECK_AUDIT_VESSEL_DTLS_FLAG" 
+   AFTER UPDATE OF status
+   ON AUDIT_STAG_TEST.PARTIAL_VESSEL_DETAILS_LOG    FOR EACH ROW
+DECLARE
+   V_SUB     VARCHAR2 (200);
+   vErrMsg   VARCHAR2 (200);
+BEGIN
+   IF (:new.STATUS = 1 AND :old.STATUS = 0)
+   THEN
+      audit_send_mail_prc (
+         p_audit_no     => 'Vessel Imo Number  ' || :new.VESSEL_IMO_NO,
+         p_company_id   => :new.COMPANY_ID,
+         p_from_mail    => audit_details_pkg.v_From,
+         p_to_mail      => :new.USER_ID,
+         p_subject      => 'Vessel Details',
+         p_body         => 'Complete vessel details available for vessel imo number '
+                          || :new.VESSEL_IMO_NO);
+   END IF;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      SELECT subject
+        INTO v_sub
+        FROM audit_email_dtls
+       WHERE email_seq = 1;
+
+      vErrMsg := SQLERRM || ' on ' || DBMS_UTILITY.format_error_backtrace;
+      audit_send_mail_prc (
+         p_audit_no     => 'Vessel Imo Number  ' || :new.VESSEL_IMO_NO,
+         p_company_id   => :new.COMPANY_ID,
+         p_from_mail    => audit_details_pkg.v_From,
+         p_to_mail      => audit_details_pkg.V_BSOLTEAM,
+         p_subject      => v_sub,
+         p_body         => vErrMsg);
+END;
+/

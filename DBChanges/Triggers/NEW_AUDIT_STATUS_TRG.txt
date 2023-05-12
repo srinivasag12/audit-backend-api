@@ -1,0 +1,70 @@
+DROP TRIGGER AUDIT_STAG_TEST.NEW_AUDIT_STATUS_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."NEW_AUDIT_STATUS_TRG"   
+   BEFORE INSERT OR DELETE OR UPDATE
+   ON ma_audit_status
+   FOR EACH ROW
+DECLARE
+   v_from                VARCHAR2 (30) := audit_details_pkg.v_From;
+   v_to                  VARCHAR2 (3000);
+   v_sub                 VARCHAR2 (500);
+   v_body                VARCHAR2 (1000);
+   v_company_id          NUMBER;
+   v_audit_status_desc   VARCHAR2 (30);
+   v_cc                  VARCHAR2 (30);-- := audit_details_pkg.v_admin;
+   audit_desc_msg        VARCHAR2 (20);
+BEGIN
+select user_id into v_cc from ma_user_roles where role_id=1002;
+   CASE
+      WHEN INSERTING
+      THEN
+         v_audit_status_desc := :new.audit_status_desc;
+         v_company_id := :new.company_id;
+
+         SELECT listagg (user_id, ',') WITHIN GROUP (ORDER BY role_id)
+           INTO v_to
+           FROM ma_user_roles
+          WHERE company_id = 2 AND role_id = 1001;
+
+         IF :new.AUDIT_TYPE_ID IN (1004, 1005)
+         THEN
+            audit_desc_msg := 'Review';
+         ELSIF :new.AUDIT_TYPE_ID IN (1003)
+         THEN
+            audit_desc_msg := 'Inspection';
+         ELSE
+            audit_desc_msg := 'Audit';
+         END IF;
+
+         SELECT subject,
+                REPLACE (
+                   body,
+                   'New Feature____',
+                   'New Feature ' || (SELECT v_audit_status_desc FROM DUAL))
+           INTO v_sub, v_body
+           FROM audit_email_dtls
+          WHERE email_seq = 12;
+UPDATE MASTER_TABLE_UPDATE SET TABLE_UPDATION=0  WHERE  TABLE_NAME='AuditStatus'; 
+         audit_send_mail_prc ('New ' || audit_desc_msg || ' Status',
+                              v_company_id,
+                              v_from,
+                              v_to,
+                              v_cc,
+                              v_sub,
+                              v_body);
+                              
+  WHEN UPDATING THEN
+     
+     UPDATE MASTER_TABLE_UPDATE SET TABLE_UPDATION=0  WHERE  TABLE_NAME='AuditStatus';
+     WHEN DELETING THEN
+     
+     UPDATE MASTER_TABLE_UPDATE SET TABLE_UPDATION=0  WHERE  TABLE_NAME='AuditStatus';                            
+      ELSE
+         NULL;
+   END CASE;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      NULL;
+END;
+/

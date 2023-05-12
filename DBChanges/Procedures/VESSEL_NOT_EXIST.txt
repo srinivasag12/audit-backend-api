@@ -1,0 +1,36 @@
+CREATE OR REPLACE procedure AUDIT_STAG_TEST.VESSEL_NOT_EXIST(p_vessel_imo_no varchar2,p_user_id varchar2, p_company_Id Number )
+as
+
+v_doc_dept varchar2(200 byte);
+v_to_mail varchar2(200 byte);
+v_smtp_host varchar2(200):='172.31.30.138';
+v_subject varchar2(200);
+v_body varchar2(200);
+v_sub varchar2(200 byte);
+v_bdy varchar2(200 byte);
+v_cc_mail varchar2(200 byte);
+v_vessel_imo_no varchar2(200 byte):=p_vessel_imo_no;
+v_from_mail varchar2(200 byte);
+v_admin varchar2(200);
+begin
+SELECT listAgg (user_id,',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_admin
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1002 and company_id=p_company_Id;
+select vessdocdeptid into v_doc_dept from ma_company where company_id=p_company_Id;
+v_cc_mail:=v_admin||','||p_user_id;
+v_from_mail:='archana.nagekar@bsolsystems.com';
+v_to_mail:=v_doc_dept;
+--if v_count=0 then
+SELECT REPLACE(SUBJECT,'IMO No:__','IMO No:'||v_vessel_imo_no) INTO v_SUBJECT FROM AUDIT_EMAIL_DTLS WHERE EMAIL_SEQ=1;
+SELECT REPLACE(body,'IMO Number','IMO No:'||v_vessel_imo_no) INTO v_BODY FROM AUDIT_EMAIL_DTLS WHERE EMAIL_SEQ=1;
+dbms_output.put_line(v_subject);
+dbms_output.put_line(v_body);
+dbms_output.put_line(v_to_mail);
+dbms_output.put_line(v_from_mail);
+dbms_output.put_line(v_cc_mail);
+
+MAIL_SENDING(v_from_mail,v_to_mail,v_cc_mail,v_subject,v_body,v_smtp_host);
+--end if;
+end;
+/

@@ -1,0 +1,18 @@
+DROP TRIGGER AUDIT_STAG_TEST.USERDETAILCONFIG_IUD_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST.userdetailconfig_iud_trg 
+after insert or delete or update 
+ON AUDIT_STAG_TEST.USER_DETAILS_CONFIG 
+begin
+ if inserting then 
+ update master_table_update set table_updation=0 where table_name='ConfigDetails';
+ end if;
+ if deleting then
+ update master_table_update set table_updation=0 where table_name='ConfigDetails';
+ end if;
+
+ if updating then 
+ update master_table_update set table_updation=0 where table_name='ConfigDetails';
+ end if;
+ end ;
+/

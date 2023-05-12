@@ -1,0 +1,447 @@
+/**
+* $ Copyright 2018 BSOL Systems- IRI To Present - All rights reserved $
+* $ History – File Name MaVessel.java $
+******************  Version 1.0.0 *****************
+* & Author – Tharani priya   DateTime – Created Date Thu Mar 30 2017 15:23:44 GMT+0530 (India Standard Time) $
+* $ Created in -  File Name with Package Structure /CentralAuditApi/src/main/java/com/api/central/master/entity/MaVessel.java $
+**/
+package com.api.central.master.entity;
+
+import java.io.Serializable;
+import java.sql.Date;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.IdClass;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+
+import com.api.annotations.ShortDateFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+import org.hibernate.annotations.Formula;
+import org.springframework.format.annotation.DateTimeFormat;
+
+@Entity
+@Table(name = "MA_VESSEL_YATCH")
+@IdClass(MaVesselYatchCPK.class)
+@JsonInclude(value = Include.NON_NULL)
+public class MaVesselYatch implements Serializable {
+
+	private static final long serialVersionUID = 1L;
+
+	@Id
+	@Column(name = "VESSEL_IMO_NO")
+	private Integer vesselImoNo;
+
+	@Column(name = "VESSEL_NAME")
+	private String vesselName;
+	
+	@Column(name = "DOC_TYPE_NUMBER")
+	private String docTypeNumber;
+			
+	@Column(name = "ACTIVE_STATUS")
+	private Integer activeStatus;
+
+	@Column(name = "VESSEL_STATUS")
+	private String vesselStatus;
+	
+	@Id
+	@Column(name = "COMPANY_ID")
+	private Long companyId;
+
+	@Column(name = "OFFICIAL_NO")
+	private Long officialNo;
+
+	@Column(name = "GRT")
+	private Integer grt;
+
+	@Column(name = "COMPANY_IMO_NO")
+	private String companyImoNo;
+
+	@Column(name = "PORT_OF_REGISTRY")
+	private String portOfRegistry;
+	
+	@Column(name = "TC_APPROVAL_STATUS")
+	private Integer tcApprovalStatus;
+	
+	//@DateTimeFormat(pattern="yyyy-MM-dd")
+	@ShortDateFormat
+	@Column(name = "DATE_OF_REGISTRY")
+	private Date dateOfRegistry;
+	
+	@Column(name = "USER_INS")
+	private String userIns;
+	
+	//@DateTimeFormat(pattern="yyyy-MM-dd")
+	@ShortDateFormat
+	@Column(name = "DATE_INS")
+	private Date dateIns;
+
+	@Column(name = "VESSEL_TYPE")
+	private String vesselType;
+	
+	@Column(name = "VESSEL_ID")
+	private Integer vesselId;
+	
+	@Column(name = "VESSEL_PK")
+	private Integer vesselPk;
+	
+	@Column(name = "VESSEL_UK")
+	private Integer vesselUk;
+	
+	@Column(name = "CLASS_SOCIETY")
+	private String classSociety;
+	
+	@Column(name = "CALL_SIGN")
+	private String callSign;
+	
+	
+	@Transient
+	private String vesselTypename;
+	
+	@Transient
+	private MaVesselCompany vesselCompany;
+	
+	@Column(name = "TRANS_TYPE")
+	private String transType;
+	
+	
+	@Transient
+	private String companyAddress;
+	
+	@Transient
+	private String companyStatus; 
+
+
+	
+	@Transient
+	private String customerName;
+	
+	
+	@Transient
+	private String docIssuer;
+	
+	@ShortDateFormat
+	//@DateTimeFormat(pattern="yyyy-MM-dd")
+	@Transient
+	private  Date docExpiry;
+	
+	@Formula("(SELECT A.VESSEL_COMPANY_NAME FROM  MA_VESSEL_COMPANY A  WHERE A.COMPANY_IMO_NO=COMPANY_IMO_NO  AND A.COMPANY_ID = COMPANY_ID AND ROWNUM=1)")
+	private String getCompanyName;
+	
+	@Formula("(SELECT A.VESSEL_COMPANY_ADDRESS FROM  MA_VESSEL_COMPANY A  WHERE A.COMPANY_IMO_NO=COMPANY_IMO_NO  AND A.COMPANY_ID = COMPANY_ID AND ROWNUM=1)")
+	private String getCompanyAddress;
+	
+	@Formula("(SELECT A.DOC_TYPE_NO FROM  MA_VESSEL_COMPANY A  WHERE A.COMPANY_IMO_NO=COMPANY_IMO_NO  AND A.COMPANY_ID = COMPANY_ID AND ROWNUM=1)")
+	private String getDocTypeNo;
+	
+	@Formula("(SELECT A.DOC_ISSUER FROM  MA_VESSEL_COMPANY A  WHERE A.COMPANY_IMO_NO=COMPANY_IMO_NO  AND A.COMPANY_ID = COMPANY_ID AND ROWNUM=1)")
+	private String getDocIssuer;
+	
+	@ShortDateFormat
+	@Formula("(SELECT A.DOC_EXPIRY FROM  MA_VESSEL_COMPANY A  WHERE A.COMPANY_IMO_NO=COMPANY_IMO_NO  AND A.COMPANY_ID = COMPANY_ID AND ROWNUM=1)")
+	private Date getDocExpiry;
+	
+	
+	
+	public Date getGetDocExpiry() {
+		return getDocExpiry;
+	}
+
+	public void setGetDocExpiry(Date getDocExpiry) {
+		this.getDocExpiry = getDocExpiry;
+	}
+
+	public String getGetDocIssuer() {
+		return getDocIssuer;
+	}
+
+	public void setGetDocIssuer(String getDocIssuer) {
+		this.getDocIssuer = getDocIssuer;
+	}
+
+	public String getGetDocTypeNo() {
+		return getDocTypeNo;
+	}
+
+	public void setGetDocTypeNo(String getDocTypeNo) {
+		this.getDocTypeNo = getDocTypeNo;
+	}
+
+	public String getGetCompanyName() {
+		return getCompanyName;
+	}
+
+	public void setGetCompanyName(String getCompanyName) {
+		this.getCompanyName = getCompanyName;
+	}
+
+	
+
+	public String getGetCompanyAddress() {
+		return getCompanyAddress;
+	}
+
+	public void setGetCompanyAddress(String getCompanyAddress) {
+		this.getCompanyAddress = getCompanyAddress;
+	}
+
+	public String getDocIssuer() {
+		return docIssuer;
+	}
+
+	public void setDocIssuer(String docIssuer) {
+		this.docIssuer = docIssuer;
+	}
+
+	public Date getDocExpiry() {
+		return docExpiry;
+	}
+
+	public void setDocExpiry(Date docExpiry) {
+		this.docExpiry = docExpiry;
+	}
+
+	public String getCustomerName() {
+		return customerName;
+	}
+
+	public void setCustomerName(String customerName) {
+		this.customerName = customerName;
+	}
+
+
+
+	public String getCompanyStatus() {
+		return companyStatus;
+	}
+
+	public void setCompanyStatus(String companyStatus) {
+		this.companyStatus = companyStatus;
+	}
+
+	public String getCompanyAddress() {
+		return companyAddress;
+	}
+
+	public void setCompanyAddress(String companyAddress) {
+		this.companyAddress = companyAddress;
+	}
+
+	public String getTransType() {
+		return transType;
+	}
+
+	public void setTransType(String transType) {
+		this.transType = transType;
+	}
+
+	public Integer getVesselImoNo() {
+		return vesselImoNo;
+	}
+
+	public void setVesselImoNo(Integer vesselImoNo) {
+		this.vesselImoNo = vesselImoNo;
+	}
+
+	public String getVesselName() {
+		return vesselName;
+	}
+
+	public void setVesselName(String vesselName) {
+		this.vesselName = vesselName;
+	}
+
+	public String getDocTypeNumber() {
+		return docTypeNumber;
+	}
+
+	public void setDocTypeNumber(String docTypeNumber) {
+		this.docTypeNumber = docTypeNumber;
+	}
+
+	public Integer getActiveStatus() {
+		return activeStatus;
+	}
+
+	public void setActiveStatus(Integer activeStatus) {
+		this.activeStatus = activeStatus;
+	}
+
+	public Long getCompanyId() {
+		return companyId;
+	}
+
+	public void setCompanyId(Long companyId) {
+		this.companyId = companyId;
+	}
+
+	public Long getOfficialNo() {
+		return officialNo;
+	}
+
+	public void setOfficialNo(Long officialNo) {
+		this.officialNo = officialNo;
+	}
+
+	public Integer getGrt() {
+		return grt;
+	}
+
+	public void setGrt(Integer grt) {
+		this.grt = grt;
+	}
+
+	public String getCompanyImoNo() {
+		return companyImoNo;
+	}
+
+	public void setCompanyImoNo(String companyImoNo) {
+		this.companyImoNo = companyImoNo;
+	}
+
+	public String getPortOfRegistry() {
+		return portOfRegistry;
+	}
+
+	public void setPortOfRegistry(String portOfRegistry) {
+		this.portOfRegistry = portOfRegistry;
+	}
+
+	public Integer getTcApprovalStatus() {
+		return tcApprovalStatus;
+	}
+
+	public void setTcApprovalStatus(Integer tcApprovalStatus) {
+		this.tcApprovalStatus = tcApprovalStatus;
+	}
+
+	public Date getDateOfRegistry() {
+		
+		return dateOfRegistry;
+	}
+
+	public void setDateOfRegistry(Date dateOfRegistry) {
+		this.dateOfRegistry = dateOfRegistry;
+	}
+
+	public String getUserIns() {
+		return userIns;
+	}
+
+	public void setUserIns(String userIns) {
+		this.userIns = userIns;
+	}
+
+	public Date getDateIns() {
+		
+		return dateIns;
+	}
+
+	public void setDateIns(Date dateIns) {
+		
+		this.dateIns = dateIns;
+	}
+
+	public String getVesselType() {
+		return vesselType;
+	}
+
+	public void setVesselType(String vesselType) {
+		this.vesselType = vesselType;
+	}
+
+	public Integer getVesselId() {
+		return vesselId;
+	}
+
+	public void setVesselId(Integer vesselId) {
+		this.vesselId = vesselId;
+	}
+
+	public Integer getVesselPk() {
+		return vesselPk;
+	}
+
+	public void setVesselPk(Integer vesselPk) {
+		this.vesselPk = vesselPk;
+	}
+
+	public Integer getVesselUk() {
+		return vesselUk;
+	}
+
+	public void setVesselUk(Integer vesselUk) {
+		this.vesselUk = vesselUk;
+	}
+
+	public String getVesselTypename() {
+		return vesselTypename;
+	}
+
+	public void setVesselTypename(String vesselTypename) {
+		this.vesselTypename = vesselTypename;
+	}
+
+	public MaVesselCompany getVesselCompany() {
+		return vesselCompany;
+	}
+
+	public void setVesselCompany(MaVesselCompany vesselCompany) {
+		this.vesselCompany = vesselCompany;
+	}
+
+	public String getClassSociety() {
+		return classSociety;
+	}
+
+	public void setClassSociety(String classSociety) {
+		this.classSociety = classSociety;
+	}
+
+	public String getCallSign() {
+		return callSign;
+	}
+
+	public void setCallSign(String callSign) {
+		this.callSign = callSign;
+	}
+
+	public String getVesselStatus() {
+		return vesselStatus;
+	}
+
+	public void setVesselStatus(String vesselStatus) {
+		this.vesselStatus = vesselStatus;
+	}
+
+	@Override
+	public String toString() {
+		return "MaVesselYatch [vesselImoNo=" + vesselImoNo + ", vesselName=" + vesselName + ", docTypeNumber="
+				+ docTypeNumber + ", activeStatus=" + activeStatus + ", vesselStatus=" + vesselStatus + ", companyId="
+				+ companyId + ", officialNo=" + officialNo + ", grt=" + grt + ", companyImoNo=" + companyImoNo
+				+ ", portOfRegistry=" + portOfRegistry + ", tcApprovalStatus=" + tcApprovalStatus + ", dateOfRegistry="
+				+ dateOfRegistry + ", userIns=" + userIns + ", dateIns=" + dateIns + ", vesselType=" + vesselType
+				+ ", vesselId=" + vesselId + ", vesselPk=" + vesselPk + ", vesselUk=" + vesselUk + ", classSociety="
+				+ classSociety + ", callSign=" + callSign + ", vesselTypename=" + vesselTypename + ", vesselCompany="
+				+ vesselCompany + ", transType=" + transType + ", companyAddress=" + companyAddress + ", companyStatus="
+				+ companyStatus + ", customerName=" + customerName + ", docIssuer=" + docIssuer + ", docExpiry="
+				+ docExpiry + ", getCompanyName=" + getCompanyName + ", getCompanyAddress=" + getCompanyAddress
+				+ ", getDocTypeNo=" + getDocTypeNo + ", getDocIssuer=" + getDocIssuer + ", getDocExpiry=" + getDocExpiry
+				+ "]";
+	}
+
+
+	
+
+	
+	
+	
+	
+	
+	
+	
+}

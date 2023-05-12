@@ -1,0 +1,113 @@
+DROP TRIGGER AUDIT_STAG_TEST.AUDIT_EMAIL_NOTIFY_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."AUDIT_EMAIL_NOTIFY_TRG"
+       AFTER INSERT
+       ON AUDIT_STAG_TEST.AUDIT_EMAIL_LOG_DTLS        FOR EACH ROW
+DECLARE
+       to_status_id         NUMBER;
+       cc_status_id         NUMBER;
+       check_count      NUMBER;
+       status_flag   NUMBER;
+       check_cc_count NUMBER;
+       check_to_count NUMBER;
+       
+    BEGIN 
+       IF (:NEW.STATUS = 'Processed' and :NEW.SUBJECT IS NOT NULL AND :NEW.MESSAGE  NOT LIKE 'ORA-%' )
+       THEN
+          IF (:NEW.TO_MAIL IS NOT NULL)
+          THEN
+             to_status_id := 0;
+             cc_status_id := 0;             
+
+             FOR TOMAIL IN (    SELECT REGEXP_SUBSTR (:NEW.TO_MAIL,
+                                                      '[^,]+',
+                                                      1,
+                                                      LEVEL)
+                                          TMAIL
+                                  FROM DUAL
+                            CONNECT BY REGEXP_SUBSTR (:NEW.TO_MAIL,
+                                                      '[^,]+',
+                                                      1,
+                                                      LEVEL)
+                                          IS NOT NULL)
+             LOOP
+                to_status_id := to_status_id + 1;
+
+  SELECT COUNT (MAIL_SEQ_NO)
+                     INTO check_to_count
+                     FROM AUDIT_EMAIL_NOTIFY_DTLS
+                    WHERE EMAIL_SEQ = :new.EMAIL_SEQ AND to_mail = TOMAIL.TMAIL;
+                    
+                    
+                    IF (check_to_count = 0 )
+                   THEN
+                      status_flag := 1;
+                      ELSE
+                      status_flag := 0;
+                   END IF;
+                    
+                INSERT INTO AUDIT_EMAIL_NOTIFY_DTLS (EMAIL_SEQ,
+                                                     MAIL_SEQ_NO,
+                                                     TO_MAIL,
+                                                     TO_MAIL_STATUS_ID,COMPANY_ID)
+                     VALUES (:new.EMAIL_SEQ,
+                             to_status_id,
+                             TOMAIL.TMAIL,
+                             status_flag,:new.company_id);
+             END LOOP;
+
+             IF (:NEW.CC_MAIL IS NOT NULL)
+             THEN
+                FOR CCMAIL IN (    SELECT REGEXP_SUBSTR (:NEW.CC_MAIL,
+                                                         '[^,]+',
+                                                         1,
+                                                         LEVEL)
+                                             CMAIL
+                                     FROM DUAL
+                               CONNECT BY REGEXP_SUBSTR (:NEW.CC_MAIL,
+                                                         '[^,]+',
+                                                         1,
+                                                         LEVEL)
+                                             IS NOT NULL)
+                LOOP
+                   cc_status_id := cc_status_id + 1;
+
+                   SELECT COUNT (MAIL_SEQ_NO)
+                     INTO check_count
+                     FROM AUDIT_EMAIL_NOTIFY_DTLS
+                    WHERE EMAIL_SEQ = :new.EMAIL_SEQ AND to_mail = CCMAIL.CMAIL;
+                    
+                      SELECT COUNT (MAIL_SEQ_NO)
+                     INTO check_cc_count
+                     FROM AUDIT_EMAIL_NOTIFY_DTLS
+                    WHERE EMAIL_SEQ = :new.EMAIL_SEQ AND cc_mail = CCMAIL.CMAIL;
+                    
+                   IF (check_count = 0 and check_cc_count = 0)
+                   THEN
+                      status_flag := 1;
+                      ELSE
+                      status_flag := 0;
+                   END IF;
+
+                   IF (cc_status_id <= to_status_id)
+                   THEN
+                      UPDATE AUDIT_EMAIL_NOTIFY_DTLS
+                         SET cc_mail = CCMAIL.CMAIL,
+                             CC_MAIL_STATUS_ID = status_flag
+                       WHERE EMAIL_SEQ = :new.EMAIL_SEQ AND MAIL_SEQ_NO = cc_status_id;
+                   ELSE
+                      INSERT INTO AUDIT_EMAIL_NOTIFY_DTLS (EMAIL_SEQ,
+                                                           MAIL_SEQ_NO,
+                                                           CC_MAIL,
+                                                           CC_MAIL_STATUS_ID,COMPANY_ID)
+                           VALUES (:new.EMAIL_SEQ,
+                                   cc_status_id,
+                                   CCMAIL.CMAIL,
+                                   status_flag,:new.company_id);
+                   END IF;
+                END LOOP;
+             END IF;
+          END IF;      
+       END IF;
+    END;
+/

@@ -1,0 +1,87 @@
+DROP TRIGGER AUDIT_STAG_TEST.USER_CREATION_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."USER_CREATION_TRG"   
+AFTER INSERT
+ON AUDIT_STAG_TEST.MA_USER_ROLES FOR EACH ROW
+DECLARE
+    v_subject               varchar2 (1000);
+    v_to                    VARCHAR2 (100);
+    v_bdy                   VARCHAR2 (1000);
+    v_body                  varchar2 (30000);
+    v_company_id             NUMBER(8) := :new.company_id;
+    v_cc                    VARCHAR2 (100);-- := AUDIT_DETAILS_PKG.V_ADMIN;
+    v_from                  VARCHAR2 (30)  := audit_details_pkg.v_From;
+    v_active_status         NUMBER(10);
+    v_isps_cert             NUMBER(10);
+    v_active_status_desc    VARCHAR2(5);
+    v_isps_cert_desc        VARCHAR2(5);
+    v_app_url               varchar2(50) ; 
+    v_seq_no                varchar2(20);
+    v_user_id                varchar2(50) := :new.user_id;    
+    v_err_msg     VARCHAR2 (1000);
+    PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+select user_id into v_cc from ma_user_roles where role_id=1002;
+IF INSERTING THEN
+select a.subject, a.body
+          into v_subject, v_bdy
+          from audit_email_dtls a
+          where email_seq =20;
+          SELECT USR.ACTIVE_STATUS, USR.ISPS_REVIEW,SEQUENCE_NUMBER INTO v_active_status,v_isps_cert,v_seq_no FROM
+        MA_USERS USR WHERE USR.USER_ID = v_user_id AND USR.COMPANY_ID = v_company_id;
+        if v_active_status = 0 then
+            v_active_status_desc := 'NO';
+        else
+            v_active_status_desc := 'YES';
+        end if;
+        
+        if v_isps_cert = 0 then
+            v_isps_cert_desc := 'NO';
+        else
+            v_isps_cert_desc := 'YES';
+        end if;
+  v_app_url := AUDIT_DETAILS_PKG.V_APP_URL;
+          SELECT muliple_replace_fun (
+          v_bdy,
+          NEW t_text ('Application URL is _________',
+                               'Password is ________.',
+                               'Email ID:____________',
+                               'Active Status:  Yes/No',
+                               'ISPS Certified: Yes/No',
+                               'Role (s): ____________ ',
+                               'ID: _________________'),
+                   NEW t_text ('Application URL is ' || v_app_url,
+                               'Password is ' || 'demo',
+                               'Email ID: ' || :new.USER_ID,
+                               'Active Status:' || v_active_status_desc,
+                               'ISPS Certified:'|| v_isps_cert_desc,
+                               'Role (s):'|| role_desc,
+                               'ID:'|| v_seq_no))
+                    INTO v_body
+                    FROM (SELECT (SELECT urole.ROLE_DESC from MA_ROLES urole
+                                            where urole.ROLE_ID = :new.ROLE_ID and urole.COMPANY_ID = v_company_id)
+                                            role_desc
+                                            FROM DUAL) test;
+                                                       v_to := :new.USER_ID;
+                   --v_cc := audit_details_pkg.v_admin;
+                   dbms_output.put_line(v_to);
+                   dbms_output.put_line(v_from);
+                   dbms_output.put_line(v_cc);
+                   dbms_output.put_line(v_company_id);
+                   dbms_output.put_line(v_subject);
+                   dbms_output.put_line(v_body);
+                    audit_send_mail_prc ('User Created ' || :new.USER_ID ,
+                              v_company_id,
+                              v_from,
+                              v_to,
+                              v_cc,
+                              v_subject,
+                              v_body);
+END IF;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+   v_err_msg := SQLERRM||' '||DBMS_UTILITY.format_error_backtrace;
+   dbms_output.put_line(v_err_msg);
+END;
+/

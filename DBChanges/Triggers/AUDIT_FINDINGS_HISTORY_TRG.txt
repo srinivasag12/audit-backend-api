@@ -1,0 +1,45 @@
+DROP TRIGGER AUDIT_STAG_TEST.AUDIT_FINDINGS_HISTORY_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."AUDIT_FINDINGS_HISTORY_TRG"   
+BEFORE INSERT OR UPDATE ON AUDIT_STAG_TEST.AUDIT_FINDINGS FOR EACH ROW
+DISABLE
+DECLARE
+v_status varchar2(100);
+
+BEGIN
+
+IF(:new.AUDIT_TYPE_ID <> 1004) THEN 
+v_status := 'INSERTED';
+
+IF UPDATING THEN
+    v_status := 'UPDATED';
+    END IF;
+    END IF;
+ 
+Insert into AUDIT_FINDINGS_HISTORY(AUDIT_HISTORY_SEQ_NO,
+FINDING_SEQ_NO,
+AUDIT_DATE,
+AUDIT_CODE,
+AUDIT_SEQ_NO,
+AUDIT_TYPE_ID,
+FINDING_STATUS,
+AUDIT_HISTORY_STATUS,
+COMPANY_ID,
+USER_INS,
+DATE_INS
+)values(
+AUDIT_FINDING_SEQ_NO.nextval,
+:new.finding_seq_no,
+:new.audit_date,
+:new.audit_code,
+:new.audit_seq_no,
+:new.audit_type_id,
+:new.finding_status,
+v_status,
+:new.company_id,
+:new.user_ins,
+:new.date_ins
+);
+  
+END;
+/

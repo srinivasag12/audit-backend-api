@@ -1,0 +1,160 @@
+DROP TRIGGER AUDIT_STAG_TEST.REVIEWER_CHANGE_TRG1;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."REVIEWER_CHANGE_TRG1"   
+   AFTER INSERT 
+   ON AUDIT_STAG_TEST.AUDIT_AUDITOR_DETAILS    FOR EACH ROW
+DISABLE
+DECLARE
+   v_audit_no               NUMBER;
+   v_company_id             NUMBER;
+   v_from                   VARCHAR2 (30) := AUDIT_DETAILS_PKG.v_from;
+   v_to                     VARCHAR2 (100);
+   v_cc                     VARCHAR2 (100);--:= AUDIT_DETAILS_PKG.v_admin;
+   v_subject                VARCHAR2 (200);
+   v_body                   VARCHAR2 (1000);
+   v_sub                    VARCHAR2 (200);
+   v_bdy                    VARCHAR2 (1000);
+   v_audit_sub_typeid       NUMBER;
+   v_audit_type_id          NUMBER;
+   v_err_msg                VARCHAR2 (1000);
+   v_user                   VARCHAR2 (30);
+   v_role_id                NUMBER (8);
+   v_vessel_imo_no          VARCHAR2 (100);
+   v_new_user_id            VARCHAR2 (100);
+   v_old_user_id            VARCHAR2 (100);
+   v_certificate_issue_id   NUMBER;
+   audit_desc_msg           VARCHAR2 (20);
+   vLeadAud                 VARCHAR2 (300);
+
+   PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+IF INSERTING
+   THEN
+      v_audit_no := :NEW.audit_seq_no;
+      v_company_id := :NEW.company_id;
+      v_audit_type_id := :NEW.audit_type_id;
+      v_new_user_id := :NEW.user_id;
+      v_old_user_id := :OLD.user_id;
+DBMS_OUTPUT.PUT_LINE('STEP1');
+dbms_output.put_line(v_audit_no);
+dbms_output.put_line(v_company_id);
+dbms_output.put_line(v_audit_type_id);
+dbms_output.put_line(v_new_user_id);
+dbms_output.put_line(v_old_user_id);
+
+      SELECT user_id
+        INTO vLeadAud
+        FROM audit_auditor_details
+       WHERE     audit_seq_no = :NEW.audit_seq_no
+             AND company_id = :NEW.company_id
+             AND AUDIT_ROLE_ID = 1001
+             AND AUD_LEAD_STATUS = 1;
+             DBMS_OUTPUT.PUT_LINE('STEP2');
+dbms_output.put_line(vLeadAud);
+
+    /*  IF :NEW.audit_role_id = 1003 AND :new.AUD_LEAD_STATUS = 0
+      THEN*/
+         SELECT COUNT (*)
+           INTO v_role_id
+           FROM MA_USER_ROLES USRL
+          WHERE USRL.USER_ID = :NEW.USER_INS AND USRL.ROLE_ID = 1003;
+          DBMS_OUTPUT.PUT_LINE('STEP3');
+dbms_output.put_line(v_role_id);
+         IF v_role_id >= 0
+         THEN
+            SELECT subject, body
+              INTO v_sub, v_bdy
+              FROM audit_email_dtls
+             WHERE email_seq = 19;
+
+            SELECT VESSEL_IMO_NO, AUDIT_SUB_TYPE_ID
+              INTO v_vessel_imo_no, v_audit_sub_typeid
+              FROM AUDIT_DETAILS ADT
+             WHERE     ADT.AUDIT_SEQ_NO = v_audit_no
+                   AND ADT.AUDIT_TYPE_ID = v_audit_type_id
+                   AND ADT.COMPANY_ID = v_company_id;
+                   DBMS_OUTPUT.PUT_LINE('STEP4');
+dbms_output.put_line(v_vessel_imo_no);
+dbms_output.put_line(v_audit_sub_typeid);
+
+            IF :new.AUDIT_TYPE_ID IN (1004, 1005)
+            THEN
+               audit_desc_msg := 'Review';
+            ELSIF :new.AUDIT_TYPE_ID IN (1003)
+            THEN
+               audit_desc_msg := 'Inspection';
+            ELSE
+               audit_desc_msg := 'Audit';
+            END IF;
+
+            SELECT muliple_replace_fun (
+                      v_sub,
+                      NEW t_text ('Audit ___', 'IMO No.___'),
+                      NEW t_text (audit_desc_msg || '  ' || audit_type_desc,
+                                  'IMO No. ' || v_vessel_imo_no)),
+                   muliple_replace_fun (
+                      v_bdy,
+                      NEW t_text ('Audit Subtype__',
+                                  'Audit type__',
+                                  'Vessel IMO No__ ',
+                                  'by the Manager__(Whom)__'),
+                      NEW t_text (
+                                audit_desc_msg
+                             || ' Subtype: '
+                             || audit_subtype_desc,
+                             audit_desc_msg || ' Type: ' || audit_type_desc,
+                             ' IMO No. ' || v_vessel_imo_no,
+                             ' by the Manager'))
+              INTO v_subject, v_body
+              FROM (SELECT (SELECT audit_type_desc
+                              FROM ma_audit_type
+                             WHERE audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_type_desc,
+                           (SELECT audit_subtype_desc
+                              FROM ma_audit_subtype
+                             WHERE     audit_sub_type_id = v_audit_sub_typeid
+                                   AND audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_subtype_desc
+                      FROM DUAL) test;
+                      DBMS_OUTPUT.PUT_LINE('STEP5');
+dbms_output.put_line(v_subject);
+dbms_output.put_line(v_body);
+            
+--                        SELECT listagg (b.user_id, ',')
+--                                  WITHIN GROUP (ORDER BY b.sequence_number)
+--                          INTO v_to
+--                          FROM ma_users b
+--                         WHERE     :new.user_id = b.user_id
+--                               AND v_company_id = b.company_id
+--                               AND :new.audit_role_id IN (1001);
+--           
+         v_cc :=
+                  :NEW.USER_INS
+             || ','
+              || vLeadAud
+               || ','
+              || audit_details_pkg.v_admin;
+DBMS_OUTPUT.PUT_LINE('STEP6');
+DBMS_OUTPUT.PUT_LINE(v_cc);
+            audit_send_mail_prc ('Reviewer Added ' || v_audit_no,
+                                 v_company_id,
+                                 v_from,
+                                 v_new_user_id,                        --v_to,
+                                 v_cc,
+                                 v_subject,
+                                 v_body);
+
+
+
+
+         --END IF;
+      END IF;
+   END IF;
+
+  
+
+--END if;
+end;
+/

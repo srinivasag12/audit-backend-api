@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="CERIFICATE_PDF" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="7d3c42cf-e6d6-4dd8-9555-464d3547af63">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="336"/>
+	<field name="vesselName" class="java.lang.String"/>
+	<field name="portOfRegistry" class="java.lang.String"/>
+	<field name="audSubTypeDesc" class="java.lang.String"/>
+	<field name="grt" class="java.lang.String"/>
+	<field name="vesselImoNo" class="java.lang.Integer"/>
+	<field name="vesselTypeDesc" class="java.lang.String"/>
+	<field name="auditTypeDesc" class="java.lang.String"/>
+	<field name="vesselCompanyName" class="java.lang.String"/>
+	<field name="vesselCompanyAddress" class="java.lang.String"/>
+	<field name="certificateNo" class="java.lang.String"/>
+	<field name="certExpireDate" class="java.util.Date"/>
+	<field name="auditPlace" class="java.lang.String"/>
+	<field name="utn" class="java.lang.String"/>
+	<field name="certIssueDate" class="java.util.Date"/>
+	<field name="officialNo" class="java.lang.Long"/>
+	<background>
+		<band height="802">
+			<rectangle>
+				<reportElement x="0" y="0" width="554" height="802" uuid="fd1959d7-313b-4ea7-84d8-a8ce549d8262"/>
+			</rectangle>
+			<staticText>
+				<reportElement positionType="FixRelativeToBottom" x="454" y="782" width="100" height="20" uuid="57e16e01-96d6-413c-974b-1c93d4c5b4cd"/>
+				<text><![CDATA[MSC-297E Rev. 2/18]]></text>
+			</staticText>
+		</band>
+	</background>
+	<title>
+		<band height="169" splitType="Stretch">
+			<staticText>
+				<reportElement x="148" y="19" width="233" height="20" uuid="16590d28-1377-43e8-96f4-d6645debc2d8"/>
+				<textElement>
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Republic of the Marshall Islands]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="183" y="39" width="140" height="20" uuid="d525becc-20bd-4c13-b2b5-44af8546ed5d"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Maritime Administrator]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="116" y="89" width="373" height="20" uuid="49424cbd-e6b4-42c0-aa48-20ac189e3f46"/>
+				<text><![CDATA[Issued under the provisions of the International Convention for the]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="148" y="109" width="237" height="22" uuid="c39ca2b0-d4bb-45a5-8f3e-0ffa05cde17d"/>
+				<text><![CDATA[Safety of Life at Sea,1974(SOLAS) as amended]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="128" y="148" width="302" height="20" uuid="4a6767d3-793e-4ccc-bcf0-fc5bd36e9090"/>
+				<text><![CDATA[Under the authority of the Government of the Marshall Islands]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="156" y="69" width="229" height="20" uuid="370ede20-f077-4c6c-a64e-0d05fa5f2e96"/>
+				<textElement>
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{audSubTypeDesc} + " " +"Saftety Management Certificate"]]></textFieldExpression>
+			</textField>
+			<image>
+				<reportElement x="16" y="4" width="64" height="66" uuid="16f39aac-0c42-4b51-a3ea-48290e017d9b"/>
+				<imageExpression><![CDATA["C:\\Users\\tharani\\Desktop\\sample images\\Logo.png"]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="440" y="0" width="100" height="20" uuid="6b089a8f-34d3-4c57-9ff0-cc455ef7f63d"/>
+				<text><![CDATA[Certificate Number]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="440" y="20" width="100" height="20" uuid="9d987584-d648-4ebf-8a0f-f2a60bfc902a"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$F{certificateNo}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="440" y="39" width="100" height="1" uuid="378a86a2-bcd9-47f4-ae05-bd5253719620"/>
+			</line>
+			<line>
+				<reportElement x="440" y="20" width="100" height="1" uuid="5e9f00fb-a0d2-4c07-ae7d-214ebe6c4d6d"/>
+			</line>
+			<line>
+				<reportElement x="440" y="20" width="1" height="20" uuid="846d4f86-7666-459e-ae7a-d4bb4a38988a"/>
+			</line>
+			<line>
+				<reportElement x="539" y="21" width="1" height="18" uuid="04674699-ade2-4487-9d6b-b7cc3bff1337"/>
+			</line>
+		</band>
+	</title>
+	<detail>
+		<band height="155" splitType="Stretch">
+			<staticText>
+				<reportElement x="16" y="0" width="132" height="20" uuid="70a6ba2a-6780-48fc-90b1-d6ce1e6ef191"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Particulars of the Ship:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="35" width="100" height="20" uuid="3983989e-6265-4a5c-acf3-5a47b32c3022"/>
+				<text><![CDATA[Name of the Ship:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="55" width="149" height="20" uuid="638f787e-81db-4a60-81c2-75fc47c6e2f5"/>
+				<text><![CDATA[Distinctive Number of Letters:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="75" width="100" height="20" uuid="8f902516-2b97-462d-9ff0-3252c772e63f"/>
+				<text><![CDATA[Port of Registry:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="95" width="100" height="20" uuid="ecdbb587-c5e6-4c44-927a-5964172dff0a"/>
+				<text><![CDATA[Gross Tonage:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="115" width="100" height="20" uuid="77de13a9-de83-4f4a-af39-3135a26c9b64"/>
+				<text><![CDATA[IMO Number:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="135" width="100" height="20" uuid="2826216a-bbef-42ac-b07c-65d67da5e4d4"/>
+				<text><![CDATA[Type of Ship:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="35" width="100" height="20" uuid="bb962248-9724-4121-8338-844ca7acab94"/>
+				<textFieldExpression><![CDATA[$F{vesselName}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="75" width="100" height="20" uuid="38c8a817-057e-475a-8831-a67314c075bd"/>
+				<textFieldExpression><![CDATA[$F{portOfRegistry}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="95" width="100" height="20" uuid="a95c7c1a-5af7-496f-a03a-201421de7fcf"/>
+				<textFieldExpression><![CDATA[$F{grt}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="115" width="100" height="20" uuid="7f8ebbd7-fb76-4ce8-b0ed-f4a8f70a746b"/>
+				<textFieldExpression><![CDATA[$F{vesselImoNo}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="135" width="100" height="20" uuid="085cbbbf-f7d7-40ad-95e4-332310f490a5"/>
+				<textFieldExpression><![CDATA[$F{vesselTypeDesc}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="240" y="55" width="100" height="20" uuid="cd913042-bd44-4cba-9fb8-d153c834f80e"/>
+				<textFieldExpression><![CDATA[$F{officialNo}]]></textFieldExpression>
+			</textField>
+		</band>
+		<band height="136">
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="60" width="100" height="20" uuid="b801200b-fe9b-438d-a9b9-f64c302d9eb9"/>
+				<textFieldExpression><![CDATA[$F{vesselCompanyAddress}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="16" y="0" width="177" height="20" uuid="76688128-fd18-4118-ace4-ec0c527a4475"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Name and Address of the Company:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="16" y="20" width="324" height="20" uuid="66898190-6121-4497-8247-ab86cc419c57"/>
+				<textFieldExpression><![CDATA["(See Paragraph 1.1.2 of the"+" " +$F{auditTypeDesc}+" "+"Code)"]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="240" y="40" width="100" height="20" uuid="c6e730dd-6b6b-43fa-84a2-df25e68ba32f"/>
+				<textFieldExpression><![CDATA[$F{vesselCompanyName}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="16" y="116" width="167" height="20" uuid="9f6b53cd-46d3-40a0-a2be-c83cc207cf33"/>
+				<text><![CDATA[Company Identification Number:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="60" width="100" height="20" uuid="489b0b2c-7906-432b-a1d1-732d7af2aae6"/>
+				<text><![CDATA[Company Address:]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="40" width="100" height="20" uuid="b45c4171-5795-469f-87db-2c65ffd771a9"/>
+				<text><![CDATA[Company Name:]]></text>
+			</staticText>
+		</band>
+		<band height="118">
+			<line>
+				<reportElement x="0" y="0" width="555" height="1" uuid="0cd0fd87-5ad9-4bc5-b912-544cd8932abf"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="1" width="555" height="17" uuid="4df97d6f-750c-4bf2-b34c-61a3517bc3c7"/>
+				<textElement>
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[THIS IS TO CERTIFY THAT the requirements of the paragrapgh 14.4 of the International Management Code for the]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="18" width="555" height="20" uuid="d156125f-c3e3-4f60-8f80-9f725d5caf7b"/>
+				<textElement markup="none"/>
+				<textFieldExpression><![CDATA["Safe Operation of Ships and for Pollution prevention" +" ("+$F{auditTypeDesc}+") "+"have been met and that the Document of"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="38" width="258" height="20" uuid="3d29920b-9976-4d78-9a70-6e05bb7cb81d"/>
+				<text><![CDATA[Compliance of the Company is relevant to the Ship]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="0" y="78" width="555" height="20" uuid="216f29da-cb12-4147-a3d0-adbb38f35709"/>
+				<textElement>
+					<font size="10" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{audSubTypeDesc} + " " +"Saftety Management Certificate is valid until"+" "+$F{certExpireDate}+",Subject to the Document of Compliance"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="98" width="100" height="20" uuid="683e5a57-595a-4b4a-8a52-5e956a64ab16"/>
+				<text><![CDATA[remaining valid.]]></text>
+			</staticText>
+		</band>
+		<band height="74">
+			<staticText>
+				<reportElement x="146" y="0" width="409" height="20" uuid="b22f932e-4b14-414e-add9-d440004d90e8"/>
+				<text><![CDATA[Issued by the authority of the Republic of the Marrshall Islands Maritime Administrator]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="148" y="20" width="406" height="20" uuid="f523958d-3f5c-4f07-a684-beb2e506ebf2"/>
+				<textElement markup="none"/>
+				<textFieldExpression><![CDATA["at" +($F{auditPlace})+"  "+"this"+" "+"day of ("
+
+]]></textFieldExpression>
+			</textField>
+		</band>
+		<band height="133">
+			<staticText>
+				<reportElement x="0" y="0" width="240" height="20" uuid="49aef060-adb6-4ad1-a44b-d145ef1747b1"/>
+				<text><![CDATA[(Seal or Stamp of issuing Authority,as appropriate)]]></text>
+			</staticText>
+			<line>
+				<reportElement x="258" y="20" width="263" height="1" uuid="a45c0012-a92a-43ca-a729-4b18760d9f02"/>
+			</line>
+			<staticText>
+				<reportElement x="323" y="21" width="92" height="14" uuid="e20f91b3-9cee-4923-9e67-96e8eb5d5315"/>
+				<textElement>
+					<font isItalic="true"/>
+				</textElement>
+				<text><![CDATA[(Name)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="315" y="35" width="100" height="20" uuid="24f5571d-a6bd-4699-8fe1-a356fa8cdbfe"/>
+				<textElement>
+					<font isItalic="true"/>
+				</textElement>
+				<text><![CDATA[(Appointment)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="16" y="35" width="140" height="20" uuid="f594dac7-6c66-4d04-aa71-c35e2774f7fc"/>
+				<text><![CDATA[Unique Tracking Number:]]></text>
+			</staticText>
+			<line>
+				<reportElement x="16" y="66" width="149" height="1" uuid="76904745-f9f0-4c75-a284-45f91558c208"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="85" width="555" height="16" uuid="67966714-93d6-4085-a4dc-6d44494d2b18"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[Insert the Type of Ship from among the following:passenger ship,passenger high-speed craft;cargo high-speed craft;bulk carrier;oil tanker;]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="0" y="101" width="357" height="20" uuid="aaa5aeef-751a-4b31-a016-6cc84af8fa9b"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<text><![CDATA[chemical tanker;gas carrier;mobile offshore drilling unit:cargo ship.]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="16" y="55" width="177" height="25" uuid="031aae54-3bff-4e47-94a3-b97bb3c5add7"/>
+				<textFieldExpression><![CDATA[$F{utn}]]></textFieldExpression>
+			</textField>
+		</band>
+		<band height="143">
+			<textField>
+				<reportElement x="48" y="29" width="367" height="20" uuid="49f5c787-e58e-4606-bfa2-c21986856301"/>
+				<textElement markup="none"/>
+				<textFieldExpression><![CDATA["The Validity of this Interim Safety Management Certificate is extended to "]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="131" y="107" width="423" height="20" uuid="8519267f-65b5-4017-82a3-82fd5d14ecf9"/>
+				<textElement markup="none"/>
+				<textFieldExpression><![CDATA[$F{certIssueDate}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="131" y="87" width="409" height="20" uuid="b65ec52d-b40f-4c2c-86ad-b313123d35a0"/>
+				<text><![CDATA[Issued by the authority of the Republic of the Marrshall Islands Maritime Administrator]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="455" y="0" width="100" height="20" uuid="da18a8bd-f30b-442e-ae06-c0901c6041ee"/>
+				<text><![CDATA[Certificate Number]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="455" y="20" width="100" height="20" uuid="44cbf662-3003-4b29-acaa-bbf057c8029a"/>
+				<textElement textAlignment="Center"/>
+				<textFieldExpression><![CDATA[$F{certificateNo}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="455" y="40" width="100" height="1" uuid="ed36c0fa-3fef-4064-af5a-50762f80bb9a"/>
+			</line>
+			<line>
+				<reportElement x="455" y="19" width="100" height="1" uuid="fa57a749-f2d9-45b8-8ba9-d79022886e55"/>
+			</line>
+			<line>
+				<reportElement x="455" y="20" width="1" height="21" uuid="7a93ef7e-3e80-4540-a538-ab7131a21aa2"/>
+			</line>
+			<line>
+				<reportElement x="554" y="20" width="1" height="18" uuid="c2e2c5f6-c5d5-4a4d-83e7-b6cea3d48d87"/>
+			</line>
+		</band>
+		<band height="100">
+			<staticText>
+				<reportElement x="0" y="46" width="240" height="20" uuid="bf66e279-b22f-4ba3-b452-5bf2a23b5dd2"/>
+				<text><![CDATA[(Seal or Stamp of issuing Authority,as appropriate)]]></text>
+			</staticText>
+			<line>
+				<reportElement x="258" y="16" width="263" height="1" uuid="53d21207-4ad2-4350-965f-057be0acc258"/>
+			</line>
+			<staticText>
+				<reportElement x="307" y="17" width="92" height="14" uuid="acec6d96-90fb-458c-a330-2492efdece30"/>
+				<textElement>
+					<font isItalic="true"/>
+				</textElement>
+				<text><![CDATA[(Name)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="299" y="31" width="100" height="20" uuid="21e50d9b-3368-455e-b93f-cd7796eed57f"/>
+				<textElement>
+					<font isItalic="true"/>
+				</textElement>
+				<text><![CDATA[(Appointment)]]></text>
+			</staticText>
+		</band>
+	</detail>
+</jasperReport>

@@ -1,0 +1,56 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.MA_UPDATE_PUBLISH_STATUS_IHM (
+   p_certIssueId         NUMBER,
+   p_companyId        NUMBER,
+   p_vesselImoNo       NUMBER,
+   p_auditSubTypeId     NUMBER,
+   p_auditSeqNo          NUMBER,
+    p_socType              VARCHAR2
+ 
+  )
+   AS
+   vErrMsg                       VARCHAR2 (200);
+    v_audit_seq_no                NUMBER;
+
+/******************************************************************************
+   NAME:       MA_UPDATE_PUBLISH_STATUS_IHM
+   PURPOSE:    
+
+   REVISIONS:
+   Ver        Date        Author           Description
+   ---------  ----------  ---------------  ------------------------------------
+   1.0        02-07-2020   kalirajan       1. Created this procedure.
+
+   NOTES:
+
+   Automatically available Auto Replace Keywords:
+      Object Name:     MA_UPDATE_PUBLISH_STATUS_IHM
+      Sysdate:         02-07-2020
+      Date and Time:   02-07-2020, 09:38:51 AM, and 02-07-2020 09:38:51 AM
+      Username:        kalirajan (set in TOAD Options, Procedure Editor)
+      Table Name:       (set in the "New PL/SQL Object" dialog)
+
+******************************************************************************/
+BEGIN
+
+                IF(p_socType = 'soc')
+                THEN
+                        UPDATE CERTIFICATE_IHM_DETAIL SET PUBLISH_STATUS = 1 
+                                WHERE AUDIT_SEQ_NO <> 600004 AND CERTIFICATE_ISSUE_ID = p_certIssueId AND COMPANY_ID = p_companyId 
+                                AND VESSEL_IMO_NO = p_vesselImoNo  AND SOC_TYPE IN ('hk','eu');
+                ELSE
+                     UPDATE CERTIFICATE_IHM_DETAIL SET PUBLISH_STATUS = 1 
+                                WHERE AUDIT_SEQ_NO <> 600004 AND CERTIFICATE_ISSUE_ID = p_certIssueId AND COMPANY_ID = p_companyId 
+                                AND VESSEL_IMO_NO = p_vesselImoNo AND SOC_TYPE IN ('exe') ;
+                 END IF;
+                    IF (p_auditSeqNo = 600004)
+                    THEN
+
+                     UPDATE CERTIFICATE_IHM_DETAIL SET PUBLISH_STATUS = 1 
+                                WHERE AUDIT_SEQ_NO = p_auditSeqNo AND CERTIFICATE_ISSUE_ID = p_certIssueId AND COMPANY_ID = p_companyId 
+                                AND VESSEL_IMO_NO = p_vesselImoNo ;
+
+                    END IF;
+
+
+ END MA_UPDATE_PUBLISH_STATUS_IHM;
+/

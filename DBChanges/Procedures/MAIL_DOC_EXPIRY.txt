@@ -1,0 +1,24 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.mail_doc_expiry(vesselImoNo NUMBER,companyImoNo NUMBER,leadAuditorId VARCHAR2) as
+
+
+v_to_mail varchar2(200):= 'parashuram.jumanal@bsolsystems.com';
+v_from_mail varchar2(200):='dinesh.p@bsolsystems.com';
+v_cc_mail  varchar2(400);
+
+v_smtp_host varchar2(200):='172.31.30.138';
+v_body varchar2(200);
+v_sub varchar2(200 byte):='Vessel Details Incompleteggggggggg';
+v_bdy varchar2(200 byte);
+
+v_vessel_imo_no NUMBER:=vesselImoNo;
+v_vessel_id NUMBER:=companyImoNo;
+
+begin
+
+SELECT 'testttttttttssssss ' || vesselImoNo || ' and VESSEL_ID ' || companyImoNo || ' having incomplete details. Please update datas to progress Auditing.' into v_body from dual;
+
+ 
+MAIL_SENDING(v_from_mail, v_to_mail, v_cc_mail,  v_sub,  v_body, v_smtp_host);
+
+end;
+/

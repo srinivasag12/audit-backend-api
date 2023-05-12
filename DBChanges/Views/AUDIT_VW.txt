@@ -1,0 +1,35 @@
+DROP VIEW AUDIT_STAG_TEST.AUDIT_VW;
+
+/* Formatted on 09-08-2022 18:11:40 (QP5 v5.163.1008.3004) */
+CREATE OR REPLACE FORCE VIEW AUDIT_STAG_TEST.AUDIT_VW
+(
+   EMAIL_SEQ,
+   ACCESS_LINK,
+   FROM_MAIL,
+   TO_MAIL,
+   SUBJECT,
+   MESSAGE,
+   STATUS,
+   ERROR_MESSAGE,
+   COMPANY_ID,
+   USER_INS,
+   DATA_INS,
+   CC_MAIL
+)
+AS
+   SELECT "EMAIL_SEQ",
+          "ACCESS_LINK",
+          "FROM_MAIL",
+          "TO_MAIL",
+          "SUBJECT",
+          "MESSAGE",
+          "STATUS",
+          "ERROR_MESSAGE",
+          "COMPANY_ID",
+          "USER_INS",
+          "DATA_INS",
+          "CC_MAIL"
+     FROM audit_email_log_dtls;
+
+
+GRANT INSERT, SELECT, UPDATE ON AUDIT_STAG_TEST.AUDIT_VW TO AUDIT_PROD_LOG;

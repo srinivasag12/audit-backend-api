@@ -1,0 +1,449 @@
+DROP TRIGGER LOCAL_AUDIT_CHANGES.AUD_SUMMARY_OR_VOID_STATUS;
+
+CREATE OR REPLACE TRIGGER LOCAL_AUDIT_CHANGES.AUD_SUMMARY_OR_VOID_STATUS
+AFTER UPDATE
+OF AUDIT_STATUS_ID
+  ,AUDIT_SUMMARY_ID
+ON LOCAL_AUDIT_CHANGES.AUDIT_DETAILS 
+REFERENCING NEW AS NEW OLD AS OLD
+FOR EACH ROW
+DECLARE
+   v_audit_no               NUMBER;
+   v_company_id             NUMBER;
+   v_audit_sub_type_id      NUMBER;
+   v_audit_type_id          NUMBER;
+   v_new_audit_summary_id   NUMBER;
+   v_old_audit_summary_id   NUMBER;
+   v_count                  NUMBER;
+   v_seq                    NUMBER;
+   v_certificate_issue_id   NUMBER;
+   v_count_inter_add        NUMBER;
+   v_vessel_imo_no          NUMBER;
+   v_certificate_no         VARCHAR2 (100);
+   v_prev_audit_seq_no      NUMBER;
+   v_err_msg                VARCHAR2 (300);
+   v_audit_status_id        NUMBER;
+   v_old_audit_status_id    NUMBER;
+    V_CERTIFICATE_ID NUMBER;
+    V_audit_seq_no_void NUMBER;
+     V_Audit_sub_type_id_void NUMBER;
+     v_certificate_issue_id_void number;
+
+     V_certificate_id_VOID NUMBER;
+     v_row_num number;
+
+   CUR1                     SYS_REFCURSOR;
+
+   PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+   v_new_audit_summary_id := :NEW.AUDIT_SUMMARY_ID;
+   v_old_audit_summary_id := :OLD.AUDIT_SUMMARY_ID;
+   v_audit_no := :NEW.AUDIT_SEQ_NO;
+   v_company_id := :NEW.COMPANY_ID;
+   v_audit_type_id := :NEW.AUDIT_TYPE_ID;
+   v_audit_sub_type_id := :NEW.AUDIT_SUB_TYPE_ID;
+   v_vessel_imo_no := :NEW.VESSEL_IMO_NO;
+   v_audit_status_id := :NEW.AUDIT_STATUS_ID;
+   v_old_audit_status_id := :OLD.AUDIT_STATUS_ID;
+
+   SELECT COUNT (AUDIT_SEQ_NO)
+     INTO v_count
+     FROM CERTIFICATE_DETAIL
+    WHERE     audit_seq_no = v_audit_no
+          AND company_id = v_company_id
+          AND AUDIT_TYPE_ID = v_audit_type_id
+          AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+
+
+   IF ( (v_new_audit_summary_id <> v_old_audit_summary_id
+         AND v_new_audit_summary_id = 1005)
+       OR (v_old_audit_summary_id IS NULL AND v_new_audit_summary_id = 1005))
+   THEN
+      IF v_count > 0
+      THEN
+         OPEN CUR1 FOR
+            SELECT SEQ_NO, CERTIFICATE_ISSUE_ID, CERTIFICATE_NO
+              FROM CERTIFICATE_DETAIL
+             WHERE     AUDIT_SEQ_NO = v_audit_no
+                   AND COMPANY_ID = v_company_id
+                   AND AUDIT_TYPE_ID = v_audit_type_id
+                   AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+
+         LOOP
+            FETCH CUR1
+            INTO v_seq, v_certificate_issue_id, v_certificate_no;
+
+            EXIT WHEN CUR1%NOTFOUND;
+
+            IF v_audit_sub_type_id IN (1003, 1005)
+               AND v_certificate_issue_id = 1008
+            THEN
+               AUDIT_VOID_OR_NOTAPPROVED (
+                  1004,
+                  v_audit_sub_type_id,
+                  v_audit_no,
+                  v_company_id,
+                  v_vessel_imo_no,
+                  v_audit_type_id);
+               COMMIT;
+            END IF;
+         END LOOP;
+
+         IF v_audit_type_id<>1006 THEN  
+         UPDATE certificate_detail
+            SET ACTIVE_STATUS = 0
+          WHERE     audit_seq_no = v_audit_no
+                AND company_id = v_company_id
+                AND AUDIT_TYPE_ID = v_audit_type_id
+                AND SEQ_NO = v_seq
+                AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+                END IF;
+
+         COMMIT;
+      END IF;
+   END IF;
+
+/*********************************************IHM void scenarios - Start*********************************************************************/
+    IF (v_audit_status_id <> v_old_audit_status_id and v_audit_status_id = 1004 and v_old_audit_status_id <> 1004 and v_audit_type_id =1006) THEN
+
+
+        UPDATE certificate_ihm_detail
+            SET ACTIVE_STATUS = 0
+          WHERE     audit_seq_no = v_audit_no
+                AND company_id = v_company_id
+                AND AUDIT_TYPE_ID = v_audit_type_id
+
+                AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+        IF v_audit_sub_type_id = 1002 THEN        
+
+         for k
+                     in(select AUDIT_SEQ_NO from audit_details where vessel_imo_no = v_vessel_imo_no and audit_type_id = 1006  and audit_seq_no < v_audit_no AND audit_seq_no <> v_audit_no and (audit_summary_id != 1005 or Audit_status_id != 1004)  )
+                        loop
+                    DBMS_OUTPUT.PUT_LINE(k.AUDIT_SEQ_NO);
+                                    FOR d
+                                    IN (select CERTIFICATE_ID from certificate_ihm_Detail where  vessel_imo_no = v_vessel_imo_no and certificate_issue_id = 1005 AND audit_seq_no = v_audit_no)
+                                    LOOP
+                                     V_CERTIFICATE_ID := D.CERTIFICATE_ID;
+
+                                     DBMS_OUTPUT.PUT_LINE(V_CERTIFICATE_ID);
+                                    DELETE FROM certificate_ihm_Detail WHERE  vessel_imo_no = v_vessel_imo_no and certificate_issue_id = 1005 AND audit_seq_no = k.AUDIT_SEQ_NO AND CERTIFICATE_ID = V_CERTIFICATE_ID;
+
+
+                                      end loop;
+                     end loop;
+                 commit;
+
+            select AUDIT_SEQ_NO,Audit_sub_type_id  into V_audit_seq_no_void, V_Audit_sub_type_id_void from audit_details
+                     where vessel_imo_no = v_vessel_imo_no and audit_type_id = 1006  and audit_seq_no < v_audit_no AND audit_seq_no <> v_audit_no and (audit_summary_id != 1005 or Audit_status_id != 1004) and ROWNUM = 1 ORDER BY audit_seq_no desc;
+
+
+             select certificate_issue_id into v_certificate_issue_id_void from certificate_ihm_detail 
+                     where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no and
+                      certificate_id = (select max(certificate_id) from certificate_ihm_detail where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no) 
+                      and certificate_link_seq = (select max(certificate_link_seq) from certificate_ihm_detail where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no);
+
+              for certid 
+                          in ( select certificate_id from certificate_ihm_detail 
+                          where certificate_issue_id = v_certificate_issue_id_void and audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no and  
+                          certificate_link_seq = (select max(certificate_link_seq) from certificate_ihm_detail where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no))
+                          LOOP
+                          V_certificate_id_VOID := certid.certificate_id;
+
+                          update certificate_ihm_detail 
+                          set active_status = 1 
+                          where certificate_issue_id = v_certificate_issue_id_void  and vessel_imo_no = v_vessel_imo_no and  
+                          certificate_link_seq = (select max(certificate_link_seq) from certificate_ihm_detail where  audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no )
+                           and certificate_id = V_certificate_id_VOID;
+
+                          END LOOP;
+                  commit;
+        END IF;
+    END IF;
+
+
+    /*********************************************IHM void scenarios - end *********************************************************************/
+
+      /*********************************************IHM approve and not approve - start *********************************************************************/
+    IF (v_new_audit_summary_id <> v_old_audit_summary_id
+         AND v_new_audit_summary_id = 1005 and v_old_audit_summary_id = 1001 and V_Audit_type_id = 1006)
+
+       THEN
+
+        UPDATE certificate_ihm_detail
+            SET ACTIVE_STATUS = 0
+          WHERE     audit_seq_no = v_audit_no
+                AND company_id = v_company_id
+                AND AUDIT_TYPE_ID = v_audit_type_id
+
+                AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+
+       IF v_audit_sub_type_id = 1002 THEN        
+
+         for k
+                     in(select AUDIT_SEQ_NO from audit_details where vessel_imo_no = v_vessel_imo_no and audit_type_id = 1006  and audit_seq_no < v_audit_no AND audit_seq_no <> v_audit_no and (audit_summary_id != 1005 or Audit_status_id != 1004)  )
+                        loop
+                    DBMS_OUTPUT.PUT_LINE(k.AUDIT_SEQ_NO);
+                                    FOR d
+                                    IN (select CERTIFICATE_ID from certificate_ihm_Detail where  vessel_imo_no = v_vessel_imo_no and certificate_issue_id = 1005 AND audit_seq_no = v_audit_no)
+                                    LOOP
+                                     V_CERTIFICATE_ID := D.CERTIFICATE_ID;
+
+                                     DBMS_OUTPUT.PUT_LINE(V_CERTIFICATE_ID);
+                                    DELETE FROM  certificate_ihm_Detail  WHERE  vessel_imo_no = v_vessel_imo_no and certificate_issue_id = 1005 AND audit_seq_no = k.AUDIT_SEQ_NO AND CERTIFICATE_ID = V_CERTIFICATE_ID;
+
+
+                                      end loop;
+                     end loop;
+                 commit;
+
+            select AUDIT_SEQ_NO,Audit_sub_type_id  into V_audit_seq_no_void, V_Audit_sub_type_id_void from audit_details
+                     where vessel_imo_no = v_vessel_imo_no and audit_type_id = 1006  and audit_seq_no < v_audit_no AND audit_seq_no <> v_audit_no and (audit_summary_id != 1005 or Audit_status_id != 1004) and ROWNUM = 1 ORDER BY audit_seq_no desc;
+
+
+                         select row_num,certificate_issue_id into v_row_num, v_certificate_issue_id_void from ( select ROW_NUMBER() OVER(
+                                ORDER BY certificate_id DESC
+                            ) row_num,certificate_issue_id  from certificate_ihm_detail 
+                                             where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no and
+                                              certificate_link_seq = (select max(certificate_link_seq) from certificate_ihm_detail where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no)
+                                             AND certificate_id not in (select certificate_id from certificate_ihm_detail WHERE     audit_seq_no = v_audit_no
+                                                        AND company_id = 2
+                                                         AND AUDIT_TYPE_ID = 1006
+
+                                                        AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id) )where Rownum = 1;  
+
+              for certid 
+                          in ( select certificate_id from certificate_ihm_detail 
+                          where certificate_issue_id = v_certificate_issue_id_void and audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no and  
+                          certificate_link_seq = (select max(certificate_link_seq) from certificate_ihm_detail where audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no))
+                          LOOP
+                          V_certificate_id_VOID := certid.certificate_id;
+
+                          update certificate_ihm_detail 
+                          set active_status = 1 
+                          where certificate_issue_id = v_certificate_issue_id_void  and vessel_imo_no = v_vessel_imo_no and  
+                          certificate_link_seq = (select max(certificate_link_seq) from certificate_ihm_detail where  audit_seq_no =V_audit_seq_no_void and vessel_imo_no = v_vessel_imo_no )
+                           and certificate_id = V_certificate_id_VOID;
+
+                          END LOOP;
+                  commit;
+        END IF;
+
+      ELSIF  (v_new_audit_summary_id <> v_old_audit_summary_id
+      AND v_old_audit_summary_id = 1005
+      AND v_new_audit_summary_id = 1001 and  V_Audit_type_id = 1006)
+             THEN
+                IF v_audit_sub_type_id = 1002 THEN
+
+
+                MA_IHM_AMEND_GENERATE_CERT_ALL (
+                                                           v_vessel_imo_no   ,
+                                                           v_audit_no    ,
+                                                           'TEST',
+                                                           v_audit_type_id   ,
+                                                           v_audit_sub_type_id ,
+                                                           v_company_id ,
+                                                           'INSERTAMEND-ADDITIONAL');
+
+                UPDATE certificate_ihm_detail
+                                                        SET ACTIVE_STATUS = 1
+                                                      WHERE   company_id = v_company_id
+                                                            AND AUDIT_TYPE_ID = v_audit_type_id AND vessel_imo_no = v_vessel_imo_no
+                                                            AND CERTIFICATE_ID IN (SELECT CERTIFICATE_ID FROM  certificate_ihm_detail 
+                                                                                     WHERE     audit_seq_no = v_audit_no
+                                                                                        AND company_id = v_company_id
+                                                                                        AND AUDIT_TYPE_ID = v_audit_type_id
+
+                                                                                        AND AUDIT_SUB_TYPE_ID = 1002
+
+                                                                                         AND   vessel_imo_no = v_vessel_imo_no );
+
+                   UPDATE certificate_ihm_detail
+                                                        SET ACTIVE_STATUS = 0
+                                                      WHERE   company_id = v_company_id
+                                                            AND AUDIT_TYPE_ID = v_audit_type_id AND vessel_imo_no = v_vessel_imo_no
+                                                            AND CERTIFICATE_ID NOT IN (SELECT CERTIFICATE_ID FROM  certificate_ihm_detail 
+                                                                                     WHERE     audit_seq_no = v_audit_no
+                                                                                        AND company_id = v_company_id
+                                                                                        AND AUDIT_TYPE_ID = v_audit_type_id
+
+                                                                                        AND AUDIT_SUB_TYPE_ID = 1002
+
+                                                                                         AND   vessel_imo_no = v_vessel_imo_no );
+
+
+                ELSE
+
+                        SELECT DISTINCT(CERTIFICATE_ISSUE_ID) INTO v_certificate_issue_id_void FROM  certificate_ihm_detail 
+                        WHERE     audit_seq_no = v_audit_no
+                                    AND company_id = v_company_id
+                                    AND AUDIT_TYPE_ID = v_audit_type_id
+
+                                    AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id  ORDER BY CERTIFICATE_ID DESC;
+
+                           UPDATE certificate_ihm_detail
+                                SET ACTIVE_STATUS = 1
+                              WHERE     audit_seq_no = v_audit_no
+                                    AND company_id = v_company_id
+                                    AND AUDIT_TYPE_ID = v_audit_type_id
+                                    AND CERTIFICATE_ISSUE_ID = v_certificate_issue_id_void
+                                    AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+                END IF;
+                COMMIT;
+
+             END IF;
+
+                   /*********************************************IHM approve and not approve - start *********************************************************************/
+
+
+   IF     v_new_audit_summary_id <> v_old_audit_summary_id
+      AND v_old_audit_summary_id = 1005
+      AND v_new_audit_summary_id <> 1005
+   THEN
+      IF v_count > 0
+      THEN
+         OPEN CUR1 FOR
+            SELECT SEQ_NO, CERTIFICATE_ISSUE_ID, CERTIFICATE_NO
+              FROM CERTIFICATE_DETAIL
+             WHERE     AUDIT_SEQ_NO = v_audit_no
+                   AND COMPANY_ID = v_company_id
+                   AND AUDIT_TYPE_ID = v_audit_type_id
+                   AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+
+         LOOP
+            FETCH CUR1
+            INTO v_seq, v_certificate_issue_id, v_certificate_no;
+
+
+            EXIT WHEN CUR1%NOTFOUND;
+
+            DBMS_OUTPUT.PUT_LINE (
+                  v_seq
+               || '   '
+               || v_certificate_issue_id
+               || '   '
+               || v_certificate_no);
+
+            IF v_audit_sub_type_id IN (1003, 1005)
+               AND v_certificate_issue_id = 1008
+            THEN
+               REISSUE_CERTIFICATE_INTERORADD (
+                  v_vessel_imo_no,
+                  v_audit_no,
+                  v_certificate_no,
+                  v_audit_type_id,
+                  v_audit_sub_type_id,
+                  v_company_id,
+                  'INSERT-INTERORADD');
+               COMMIT;
+            END IF;
+         END LOOP;
+
+         OPEN CUR1 FOR
+              SELECT SEQ_NO, CERTIFICATE_ISSUE_ID, CERTIFICATE_NO
+                FROM CERTIFICATE_DETAIL
+               WHERE     AUDIT_SEQ_NO = v_audit_no
+                     AND COMPANY_ID = v_company_id
+                     AND AUDIT_TYPE_ID = v_audit_type_id
+                     AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id
+            ORDER BY seq_no DESC;
+
+         LOOP
+            FETCH CUR1
+            INTO v_seq, v_certificate_issue_id, v_certificate_no;
+
+
+            UPDATE certificate_detail    
+               SET active_status = 1
+             WHERE     audit_seq_no = v_audit_no
+                   AND COMPANY_ID = v_company_id
+                   AND seq_no = (SELECT seq_no
+                                   FROM (  SELECT seq_no AS seq_no
+                                             FROM certificate_detail
+                                            WHERE audit_seq_no = v_audit_no
+                                                  AND COMPANY_ID = v_company_id
+                                                  AND CERTIFICATE_NO =
+                                                         v_certificate_no
+                                                  AND CERTIFICATE_ISSUE_ID <>
+                                                         1003
+                                         ORDER BY seq_no DESC)
+                                  WHERE ROWNUM = 1);
+
+            UPDATE certificate_detail
+               SET active_status = 1
+             WHERE     audit_seq_no = v_audit_no
+                   AND COMPANY_ID = v_company_id
+                   AND seq_no = (SELECT seq_no
+                                   FROM (  SELECT seq_no AS seq_no
+                                             FROM certificate_detail
+                                            WHERE audit_seq_no = v_audit_no
+                                                  AND COMPANY_ID = v_company_id
+                                                  AND CERTIFICATE_NO =
+                                                         v_certificate_no
+                                                  AND CERTIFICATE_ISSUE_ID =
+                                                         1003
+                                         ORDER BY seq_no DESC)
+                                  WHERE ROWNUM = 1);
+
+
+            UPDATE certificate_detail
+               SET ACTIVE_STATUS = 1
+             WHERE     audit_seq_no = v_audit_no
+                   AND company_id = v_company_id
+                   AND AUDIT_TYPE_ID = v_audit_type_id
+                   AND SEQ_NO = v_seq
+                   AND CERTIFICATE_ISSUE_ID IN (1001, 1002, 1008)
+                   AND AUDIT_SUB_TYPE_ID = v_audit_sub_type_id;
+
+            COMMIT;
+
+            EXIT WHEN v_certificate_issue_id IN (1008, 1002, 1001);
+         END LOOP;
+      END IF;
+
+      DBMS_OUTPUT.PUT_LINE ('exit');
+   END IF;
+   
+
+
+      
+   IF v_audit_status_id = 1004 AND v_old_audit_status_id <> v_audit_status_id 
+   THEN
+      AUDIT_VOID_OR_NOTAPPROVED (v_audit_status_id,
+                                                 v_audit_sub_type_id,
+                                                 v_audit_no,
+                                                 v_company_id,
+                                                 v_vessel_imo_no,
+                                                 v_audit_type_id);
+      COMMIT;
+   END IF;
+   
+      IF (:NEW.AUDIT_SUMMARY_ID IS NOT NULL OR :NEW.AUDIT_SUMMARY_ID IS NULL) AND (:NEW.AUDIT_STATUS_ID = 1004 OR :NEW.AUDIT_SUMMARY_ID =1005 OR :NEW.AUDIT_SUMMARY_ID <> 1005 ) AND (:NEW.AUDIT_TYPE_ID IN (1001,1002,1003))
+    
+      THEN 
+      
+      MAKE_PREV_CERT_ACTIVE(:NEW.VESSEL_IMO_NO, 
+      :NEW.AUDIT_TYPE_ID, 
+      :NEW.AUDIT_SEQ_NO, 
+      :NEW.CERTIFICATE_NO,
+      :NEW.AUDIT_SUMMARY_ID, 
+      :NEW.AUDIT_STATUS_ID,
+      :NEW.AUDIT_SUB_TYPE_ID,
+      :NEW.CERTIFICATE_ISSUE_ID);
+      
+           COMMIT;
+      END IF; 
+      
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      v_err_msg := SQLERRM || ' ' || DBMS_UTILITY.format_error_backtrace;
+
+      audit_send_mail_prc (
+         p_audit_no     => v_audit_no,
+         p_company_id   => v_company_id,
+         p_from_mail    => audit_details_pkg.v_From,
+         p_to_mail      => audit_details_pkg.V_BSOLTEAM,
+         p_subject      => 'Error in not approved summary id',
+         p_body         => v_err_msg);
+END;
+/

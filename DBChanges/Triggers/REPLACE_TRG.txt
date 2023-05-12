@@ -1,0 +1,199 @@
+DROP TRIGGER AUDIT_STAG_TEST.REPLACE_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST.replace_trg
+after update of user_id
+ON AUDIT_STAG_TEST.AUDIT_AUDITOR_DETAILS for each row
+declare
+v_olduserid varchar2(200);
+vAudSeqNo        VARCHAR2 (50);
+   vCompanyId       NUMBER;
+   vFrom            VARCHAR2 (30) := audit_details_pkg.v_From;
+   vType            VARCHAR2 (20);
+   vTo              VARCHAR2 (1000);
+   vAuditor         VARCHAR2 (30);
+   vSubject         VARCHAR2 (30000);
+   vBdy             VARCHAR2 (30000);
+   vSub             VARCHAR2 (30000);
+   vBody            VARCHAR2 (30000);
+   vSubject1         VARCHAR2 (30000);
+   vBdy1             VARCHAR2 (30000);
+   vSub1             VARCHAR2 (30000);
+   vBody1            VARCHAR2 (30000);
+   vAudType         VARCHAR2 (30);
+   vVslImoNo        VARCHAR2 (30);
+   vAudSubType      VARCHAR2 (30);
+   vMgr             VARCHAR2 (500);
+   vAccssLink       VARCHAR2 (1000);
+   vCC              VARCHAR2 (1000);
+   vErrMsg          VARCHAR2 (500);
+   vUser            VARCHAR2 (30);
+   vAudRoleId       NUMBER;
+   vAudLeadStatus   NUMBER;
+   vAudTypeId       NUMBER;
+   vInsBy           VARCHAR2 (50);
+   vRole            VARCHAR2 (30);
+   vInsRole         NUMBER;
+v_admin varchar2(200 byte);
+PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+vType := 'Replaced';
+v_olduserid:=:old.user_id;
+      vAudSeqno := :old.Audit_seq_no;
+      vTo := :new.user_id;
+      vCompanyId := :old.company_id;
+      vAudRoleId := :old.audit_role_id;
+      vAudLeadStatus := :old.aud_lead_status;
+      vAudTypeId := :old.audit_type_id;
+      vInsBy := :old.user_ins;
+   IF updating('user_id')
+   THEN
+--      vType := 'Replaced';
+--      vAudSeqno := :old.Audit_seq_no;
+--      vTo := :new.user_id;
+--      vCompanyId := :old.company_id;
+--      vAudRoleId := :old.audit_role_id;
+--      vAudLeadStatus := :old.aud_lead_status;
+--      vAudTypeId := :old.audit_type_id;
+--      vInsBy := :old.user_ins;
+dbms_output.put_line('step1');
+dbms_output.put_line(vAudSeqno);
+dbms_output.put_line(vTo);
+dbms_output.put_line(vAudRoleId);
+dbms_output.put_line(vAudLeadStatus);
+dbms_output.put_line(vInsBy);
+   END IF;
+if :old.user_id<>:new.user_id then
+   CASE
+      WHEN vAudRoleId = 1001 AND vAudLeadStatus = 0
+      THEN
+         vAuditor := 'Auditor';
+     WHEN vAudRoleId = 1001 AND vAudLeadStatus = 1
+    THEN
+     vAuditor := 'Lead Auditor';
+      WHEN vAudRoleId = 1003 AND vAudLeadStatus = 0
+      THEN
+         vAuditor := 'Reviewer';
+      WHEN vAudRoleId = 1002 AND vAudLeadStatus = 0
+      THEN
+         vAuditor := 'Observer';
+      ELSE
+         vAuditor := 'null';
+   END CASE;
+end if;
+dbms_output.put_line('step2');
+   SELECT audit_type_desc
+     INTO vAudType
+     FROM ma_audit_type
+    WHERE audit_type_id = vAudTypeId AND company_id = vCompanyId;
+dbms_output.put_line(vAudType);
+dbms_output.put_line('step3');
+   SELECT ad.vessel_imo_no, mast.audit_subtype_desc
+     INTO vVslImoNo, vAudSubType
+     FROM audit_details ad, ma_audit_subtype mast
+    WHERE     ad.audit_type_id = mast.audit_type_id
+          AND ad.audit_sub_type_id = mast.audit_sub_type_id
+          AND ad.company_id = mast.company_id
+          AND ad.audit_seq_no = vAudSeqNo
+          AND ad.company_id = vCompanyId;
+         -- AND ad.audit_type_id = vAudTypeId;
+dbms_output.put_line(vVslImoNo||vAudSubType);
+dbms_output.put_line('step4');
+   SELECT role_id
+     INTO vInsRole
+     FROM ma_user_roles
+    WHERE user_id = vInsBy AND company_id = vCompanyId;
+dbms_output.put_line(vInsRole);
+   CASE
+      WHEN vInsRole = 1001
+      THEN
+         vRole := 'Lead';
+      WHEN vInsRole = 1002
+      THEN
+         vRole := 'Admin';
+      WHEN vInsRole = 1003
+      THEN
+         vRole := 'Manager';
+   END CASE;
+
+   SELECT subject, body
+     INTO vSubject, vBdy
+     FROM audit_email_dtls
+    WHERE email_seq = 24;
+
+   vAccssLink :=
+         vAuditor
+      || '  '
+      || vType
+      || ' for the vessel is '
+      || vVslImoNo
+      || 'WIth Audit '
+      || vAudSeqno;
+
+   SELECT muliple_replace_fun (
+             vSubject,
+             NEW t_text ('Auditor', 'added/replaced/remeoved', 'by Lead'),
+             NEW t_text (vAuditor || ' ', vType || ' ', 'by ' || vRole)),
+          muliple_replace_fun (
+             vBdy,
+             NEW t_text ('Additional Auditor/Observer/Reviewer',
+                         'added/replaced /removed',
+                         '_Audit Type',
+                         'Audit Subtype',
+                         'IMO No.____',
+                         'by the Lead'),
+             NEW t_text (vAuditor || ' ',
+                         vType || ' ',
+                         'Audit Type ' || vAudType,
+                         'Audit Subtype ' || vAudSubType,
+                         'IMO No ' || vVslImoNo,
+                         'by the ' || vRole))
+     INTO vSub, vBody
+     FROM DUAL;
+
+dbms_output.put_line(vSub);
+dbms_output.put_line(vBody);
+dbms_output.put_line(vAuditor);
+   SELECT listAgg (user_id,',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO vMgr
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1003;
+SELECT listAgg (user_id,',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_admin
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1002 and company_id=vCompanyId;
+   vCC := vInsBy || ',' || vMgr || ',' || v_admin;
+dbms_output.put_line('VTO'||vTo);
+dbms_output.put_line('VCC'||vCC);
+select  subject,body  into vSubject1,vBdy1 from audit_email_dtls where email_seq=28; 
+SELECT muliple_replace_fun (
+             vSubject1,
+             NEW t_text ('Reviewer','Audit ___','IMO No.___'),
+             NEW t_text (vAuditor,'Audit '||vAudType ,'IMO No '||vVslImoNo)),
+          muliple_replace_fun (
+             vBdy1,
+             NEW t_text ('Reviewer','Audit Sub Type:___','Audit Type: ___,','IMO No.___'),
+             NEW t_text (vAuditor,'Audit Subtype ' || vAudSubType,
+                         'Audit Type'||vAudType,'IMO No '|| vVslImoNo))
+     INTO vSub1, vBody1
+     FROM DUAL;
+
+   audit_send_mail_prc (vAccssLink,
+                        vCompanyId,
+                        vFrom,
+                        vTo,
+                        vCC,
+                        vSub,
+                        vBody);
+                        DBMS_OUTPUT.PUT_LINE(vSub1);
+                       DBMS_OUTPUT.PUT_LINE(vBody1);
+audit_send_mail_prc (vAccssLink,
+                        vCompanyId,
+                        vFrom,
+                       v_olduserid,
+                        vCC,
+                        vSub1,
+                        vBody1);
+
+
+                        end;
+/

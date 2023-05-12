@@ -1,0 +1,334 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.AUDIT_FIND_DUE_DATE_SCHE_PRC
+IS
+   v_sub                   VARCHAR2 (4000);
+   v_bdy                   VARCHAR2 (4000);
+   audit_desc_msg          VARCHAR (200);
+   v_audit_seq_no          NUMBER;
+   v_vessel_imo_no         NUMBER;
+   v_vessel_name           VARCHAR2 (4000);
+   v_company_id            NUMBER;
+   v_audit_type_id         NUMBER;
+   v_audit_sub_type_id     NUMBER;
+   v_finding_seq_no        NUMBER;
+   v_status_seq_no         NUMBER;
+   v_finding_category_id   NUMBER;
+   v_status_id             NUMBER;
+   v_next_action_id        NUMBER;
+   v_due_date              VARCHAR2 (4000);
+   v_mgr                   VARCHAR2 (500);
+   v_admin                 VARCHAR2 (500);
+   v_from                  VARCHAR2 (4000) := audit_details_pkg.v_from;
+   v_to                    VARCHAR2 (4000);
+   v_cc                    VARCHAR2 (4000);
+   v_con_due_date          VARCHAR2 (4000);
+   v_tot_days              NUMBER;
+   v_near_due_day          VARCHAR2 (100);
+   v_audit_code            VARCHAR2 (100);
+   v_serial_no             VARCHAR2 (100);
+   vErrMsg                 VARCHAR2 (4000);
+   v_cur_audit_seq_no      NUMBER;
+   v_audit_desc_msg        VARCHAR2 (200);
+   v_expiring_val          VARCHAR2 (200);
+   v_car_desc_msg  VARCHAR2 (50);
+   
+BEGIN
+   FOR i
+      IN (SELECT TEST.AUDIT_SEQ_NO,
+                 TEST.VESSEL_IMO_NO,
+                 TEST.CUR_AUDIT_SEQ_NO,
+                 TEST.VESSEL_NAME,
+                 TEST.COMPANY_ID,
+                 TEST.AUDIT_TYPE_ID,
+                 TEST.AUDIT_SUB_TYPE_ID,
+                 TEST.FINDING_SEQ_NO,
+                 TEST.STATUS_SEQ_NO,
+                 TEST.FINDING_CATEGORY_ID,
+                 TEST.STATUS_ID,
+                 TEST.NEXT_ACTION_ID,
+                 TEST.DUE_DATE,
+                 TEST.AUDIT_CODE,
+                 TEST.SERIAL_NO
+            FROM (SELECT AD.AUDIT_SEQ_NO,
+                         AD.VESSEL_IMO_NO,
+                         FD.CUR_AUDIT_SEQ_NO,
+                         VE.VESSEL_NAME,
+                         AD.COMPANY_ID,
+                         AD.AUDIT_TYPE_ID,
+                         AD.AUDIT_SUB_TYPE_ID,
+                         F.FINDING_SEQ_NO,
+                         FD.STATUS_SEQ_NO,
+                         FD.FINDING_CATEGORY_ID,
+                         FD.STATUS_ID,
+                         FD.NEXT_ACTION_ID,
+                         FD.DUE_DATE,
+                         F.AUDIT_CODE,
+                         F.SERIAL_NO
+                    FROM AUDIT_DETAILS AD,
+                         AUDIT_FINDINGS F,
+                         AUDIT_FINDINGS_DETAILS FD,
+                         MA_VESSEL Ve
+                   WHERE     AD.COMPANY_ID = F.COMPANY_ID
+                         AND AD.COMPANY_ID = Ve.COMPANY_ID
+                         AND AD.VESSEL_IMO_NO = VE.VESSEL_IMO_NO
+                         AND AD.AUDIT_SEQ_NO = F.AUDIT_SEQ_NO
+                         AND F.COMPANY_ID = FD.COMPANY_ID
+                         AND F.FINDING_SEQ_NO = FD.FINDING_SEQ_NO
+                         AND F.AUDIT_SEQ_NO = FD.ORIG_SEQ_NO
+                         AND FD.FINDING_CATEGORY_ID <> 1004) TEST
+           WHERE TEST.STATUS_SEQ_NO =
+                    (  SELECT MAX (STATUS_SEQ_NO)
+                         FROM (SELECT AD.VESSEL_IMO_NO,
+                                      AD.COMPANY_ID,
+                                      AD.AUDIT_TYPE_ID,
+                                      AD.AUDIT_SUB_TYPE_ID,
+                                      AD.AUDIT_SEQ_NO,
+                                      F.FINDING_SEQ_NO,
+                                      FD.STATUS_SEQ_NO,
+                                      FD.FINDING_CATEGORY_ID,
+                                      FD.STATUS_ID
+                                 FROM AUDIT_DETAILS AD,
+                                      AUDIT_FINDINGS F,
+                                      AUDIT_FINDINGS_DETAILS FD
+                                WHERE AD.COMPANY_ID =
+                                         F.COMPANY_ID
+                                      AND AD.AUDIT_SEQ_NO =
+                                             F.AUDIT_SEQ_NO
+                                      AND F.COMPANY_ID =
+                                             FD.COMPANY_ID
+                                      AND F.FINDING_SEQ_NO =
+                                             FD.FINDING_SEQ_NO
+                                      AND (F.AUDIT_SEQ_NO =
+                                              FD.ORIG_SEQ_NO)
+                                      AND FD.FINDING_CATEGORY_ID <>
+                                             1004)
+                     GROUP BY AUDIT_SEQ_NO, FINDING_SEQ_NO, COMPANY_ID
+                       HAVING TEST.AUDIT_SEQ_NO = AUDIT_SEQ_NO
+                              AND TEST.FINDING_SEQ_NO = FINDING_SEQ_NO))
+   LOOP
+      v_audit_seq_no := i.AUDIT_SEQ_NO;
+      v_vessel_imo_no := i.VESSEL_IMO_NO;
+      v_vessel_name := i.VESSEL_NAME;
+      v_company_id := i.COMPANY_ID;
+      v_audit_type_id := i.AUDIT_TYPE_ID;
+      v_audit_sub_type_id := i.AUDIT_SUB_TYPE_ID;
+      v_finding_seq_no := i.FINDING_SEQ_NO;
+      v_status_seq_no := i.STATUS_SEQ_NO;
+      v_finding_category_id := i.FINDING_CATEGORY_ID;
+      v_status_id := i.STATUS_ID;
+      v_next_action_id := i.NEXT_ACTION_ID;
+      v_due_date := i.DUE_DATE;
+      v_audit_code := i.AUDIT_CODE;
+      v_serial_no := i.SERIAL_NO;
+      v_cur_audit_seq_no := i.CUR_AUDIT_SEQ_NO;
+
+
+      IF v_status_id <> 1008
+      THEN
+         IF (v_due_date IS NOT NULL)
+         THEN
+            SELECT VALIDATE_DATE_STRING (v_due_date)
+              INTO v_con_due_date
+              FROM DUAL;
+
+            IF (v_con_due_date <> '000000')
+            THEN
+                        
+             SELECT ( TO_DATE (v_con_due_date, 'DD/MON/RRRR') - TRUNC (SYSDATE)   )
+                 INTO v_tot_days
+                 FROM DUAL;
+                 
+               DBMS_OUTPUT.PUT_LINE ('v_tot_days ' || v_tot_days);
+                 
+                   SELECT (CASE
+                          WHEN v_tot_days = 0 THEN 'today'
+                          WHEN v_tot_days <= 3 AND v_tot_days >0  THEN 'approaching'
+                          WHEN v_tot_days < 0 THEN 'crossed'
+                       END)
+                          INTO v_near_due_day
+                 FROM DUAL;
+                 
+                 DBMS_OUTPUT.PUT_LINE ('v_near_due_day ' || v_near_due_day);
+
+               IF (v_near_due_day IS NOT NULL AND v_near_due_day <> 'crossed')
+               THEN
+                  IF v_audit_type_id IN (1004, 1005)
+                  THEN
+                     v_audit_desc_msg := 'Review';
+                  ELSIF v_audit_type_id IN (1003)
+                  THEN
+                     v_audit_desc_msg := 'Inspection';
+                  ELSE
+                     v_audit_desc_msg := 'Audit';
+                  END IF;
+
+                  SELECT (CASE
+                             WHEN v_audit_type_id = 1001 THEN 'ISM '
+                             WHEN v_audit_type_id = 1002 THEN 'ISPS '
+                             WHEN v_audit_type_id = 1003 THEN 'MLC '
+                             WHEN v_audit_type_id = 1004 THEN ' SSP '
+                             WHEN v_audit_type_id = 1005 THEN ' DMLC II '
+                          END)
+                    INTO audit_desc_msg
+                    FROM DUAL;
+
+                  IF v_cur_audit_seq_no = 600000
+                  THEN
+                     v_car_desc_msg := 'CAR';
+                     ELSE
+                     v_car_desc_msg := v_audit_desc_msg;
+                  END IF;
+
+                  SELECT subject, body
+                    INTO v_sub, v_bdy
+                    FROM audit_email_dtls
+                   WHERE email_seq = 59;
+
+                  SELECT (CASE
+                             WHEN v_tot_days = 0
+                             THEN
+                                'is expiring today'
+                             WHEN v_tot_days <= 3
+                             THEN
+                                   'is about to expire in '
+                                || v_tot_days
+                                || ' days..!!'
+                             WHEN v_tot_days < 0
+                             THEN
+                                'is Expired'
+                          END)
+                    INTO v_expiring_val
+                    FROM DUAL;
+                                                       
+                  SELECT muliple_replace_fun (
+                            v_sub,
+                            NEW t_text ('CAR',
+                                        '(Category No.)',
+                                        '(Finding Status)',
+                                        '(Audit Code)',
+                                        'is about to expire in ___days..!!'),
+                            NEW t_text (v_car_desc_msg,
+                                        v_serial_no,
+                                        finding_status,
+                                        v_audit_code,
+                                        v_expiring_val)),
+                         muliple_replace_fun (
+                            v_bdy,
+                            NEW t_text ('(E.g.: NC1),',
+                                        '(Finding Status)',
+                                        'approaching/ today/ crossed',
+                                         'ISM Code:___',
+                                        '(Audit Type)',
+                                        '(Audit Subtype)',
+                                        'Audit for',
+                                        'IMO No.:____',
+                                        'Name:____',
+                                        'Official No: ____'),
+                            NEW t_text (audit_finding_type || ',',
+                                        finding_status,
+                                        v_near_due_day,
+                                        ' ISM Code: ' || v_audit_code,
+                                         v_audit_desc_msg || ' Type: ' || audit_type_desc,
+                                        v_audit_desc_msg || ' SubType: ' || audit_subtype_desc,
+                                        v_audit_desc_msg || ' for ',
+                                        'IMO No: ' || v_vessel_imo_no,
+                                        'Name: ' || v_vessel_name,
+                                        'Official No: ' || official_num))
+                    INTO v_sub, v_bdy
+                    FROM (SELECT (SELECT audit_type_desc
+                                    FROM ma_audit_type
+                                   WHERE audit_type_id = v_audit_type_id
+                                         AND company_id = v_company_id)
+                                    audit_type_desc,
+                                 (SELECT AUDIT_SUBTYPE_DESC
+                                    FROM ma_audit_subtype
+                                   WHERE AUDIT_TYPE_ID = v_audit_type_id
+                                         AND AUDIT_SUB_TYPE_ID =
+                                                v_audit_sub_type_id
+                                         AND COMPANY_ID = v_company_id)
+                                    audit_subtype_desc,
+                                 (SELECT FINDING_CATEGORY_DESC
+                                    FROM MA_FINDINGS_CATEGORY
+                                   WHERE company_id = v_company_id
+                                         AND FINDING_CATEGORY_ID =
+                                                v_finding_category_id
+                                         AND AUDIT_TYPE_ID = v_audit_type_id)
+                                    audit_finding_type,
+                                 (SELECT OFFICIAL_NO
+                                    FROM ma_vessel
+                                   WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                         AND company_id = v_company_id)
+                                    official_num,
+                                 (SELECT FINDING_STATUS_DESC
+                                    FROM MA_FINDINGS_STATUS
+                                   WHERE     FINDING_STATUS_ID = v_status_id
+                                         AND AUDIT_TYPE_ID = v_audit_type_id
+                                         AND COMPANY_ID = v_company_id)
+                                    finding_status
+                            FROM DUAL) TEST;
+
+                  SELECT listAgg (user_id, ',')
+                            WITHIN GROUP (ORDER BY audit_seq_no ASC)
+                    INTO v_to
+                    FROM AUDIT_AUDITOR_DETAILS
+                   WHERE     AUDIT_ROLE_ID = 1001
+                         AND AUDIT_SEQ_NO = v_audit_seq_no
+                         AND company_id = v_company_id;
+
+                  SELECT listAgg (user_id, ',')
+                            WITHIN GROUP (ORDER BY role_id ASC)
+                    INTO v_mgr
+                    FROM MA_USER_ROLES USRL
+                   WHERE USRL.ROLE_ID = 1003 AND company_id = v_company_id;
+
+                  SELECT listAgg (user_id, ',')
+                            WITHIN GROUP (ORDER BY role_id ASC)
+                    INTO v_admin
+                    FROM MA_USER_ROLES USRL
+                   WHERE USRL.ROLE_ID = 1002 AND company_id = v_company_id;
+
+                  v_cc := v_mgr || ',' || v_admin;
+
+                  DBMS_OUTPUT.PUT_LINE ('v_sub ' || v_sub);
+                  DBMS_OUTPUT.PUT_LINE ('v_bdy ' || v_bdy);
+
+                  audit_send_mail_prc (
+                     'Audit findings status not updated ' || v_audit_seq_no,
+                     v_company_id,
+                     v_from,
+                     v_to,
+                     v_cc,
+                     v_sub,
+                     v_bdy);
+               END IF;
+            END IF;
+         END IF;
+      END IF;
+   END LOOP;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      SELECT subject
+        INTO v_sub
+        FROM audit_email_dtls
+       WHERE email_seq = 59;
+
+      DBMS_OUTPUT.PUT_LINE ('vErrMsg ' || vErrMsg);
+
+      DBMS_OUTPUT.put_line (
+            '  OUTER BLOCK EXCEPTION '
+         || SQLCODE
+         || ' >> '
+         || SQLERRM
+         || '  >> '
+         || DBMS_UTILITY.format_error_backtrace);
+      vErrMsg := SQLERRM || ' on ' || DBMS_UTILITY.format_error_backtrace;
+      audit_send_mail_prc (
+         p_audit_no     => 'Audit findings status not updated  '
+                          || v_audit_seq_no,
+         p_company_id   => v_company_id,
+         p_from_mail    => v_from,
+         p_to_mail      => audit_details_pkg.V_BSOLTEAM,
+         p_subject      => v_sub,
+         p_body         => vErrMsg);
+END;
+/

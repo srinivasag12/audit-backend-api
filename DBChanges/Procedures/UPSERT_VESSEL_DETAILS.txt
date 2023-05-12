@@ -1,0 +1,163 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.UPSERT_VESSEL_DETAILS (
+    P_AUDIT_SEQ_NO     NUMBER,
+    P_DATE_INS     DATE,
+    P_VESSEL_IMO_NO   NUMBER,
+    P_VESSEL_NAME            VARCHAR2,
+    P_VESSEL_TYPE            VARCHAR2,
+    P_GRT                    VARCHAR2,
+    P_COMPANY_IMO_NO         VARCHAR2,
+    P_DATE_OF_REGISTRY       DATE,
+    P_DOC_ISSUER             VARCHAR2,
+    P_DOC_EXPIRY             DATE,
+    P_VESSEL_ADDRESS         VARCHAR2,
+    P_VESSEL_ID         NUMBER,
+    P_REG_OWNED_IMO_NUMBER INTEGER,
+    P_KEEL_LAID_DATE DATE,
+    P_REGISTERED_COMPANY_NAME VARCHAR2,
+    P_REGISTERED_COMPANY_ADDRESS VARCHAR2,
+    P_statusUpdate VARCHAR2,
+    P_PORT_OF_REGISTRY  VARCHAR2)
+AS
+        V_VESSEL_NAME VARCHAR2(200 BYTE);
+        V_VESSEL_TYPE VARCHAR2(50 BYTE);
+        V_GRT VARCHAR2(9 BYTE);
+        V_COMPANY_IMO_NO VARCHAR2(35 BYTE);
+        V_DATE_OF_REGISTRY DATE;
+        V_DOC_ISSUER VARCHAR2(200 BYTE);
+        V_DOC_EXPIRY DATE;
+        V_VESSEL_ADDRESS VARCHAR2(600 BYTE);
+        V_REG_OWNED_IMO_NUMBER INTEGER;
+        V_KEEL_LAID_DATE DATE;
+        V_REGISTERED_COMPANY_NAME VARCHAR2(500 BYTE);
+        V_REGISTERED_COMPANY_ADDRESS VARCHAR2(250 BYTE);
+        V_PORT_OF_REGISTRY VARCHAR2(20 BYTE);
+        V_CNT INTEGER;
+
+BEGIN
+
+IF (P_statusUpdate = 'fromAudit ')
+THEN
+        UPDATE AUDIT_DETAILS
+            SET VESSEL_NAME = P_VESSEL_NAME ,
+                 VESSEL_TYPE   =  P_VESSEL_TYPE  , GRT = P_GRT, COMPANY_IMO_NO = P_COMPANY_IMO_NO,  DATE_OF_REGISTRY =  P_DATE_OF_REGISTRY, DOC_ISSUER = P_DOC_ISSUER, DOC_EXPIRY = P_DOC_EXPIRY, VESSEL_ADDRESS = P_VESSEL_ADDRESS
+            WHERE  AUDIT_SEQ_NO  = P_AUDIT_SEQ_NO and  VESSEL_IMO_NO  =  P_VESSEL_IMO_NO ;
+
+ELSE IF(P_statusUpdate = 'vesselHistory')
+THEN
+V_CNT := 0;
+BEGIN
+            SELECT 
+                VESSEL_NAME,
+                VESSEL_TYPE,
+                GRT,
+                COMPANY_IMO_NO,
+                DATE_OF_REGISTRY,
+                DOC_ISSUER,
+                DOC_EXPIRY, 
+                VESSEL_ADDRESS,
+                REG_OWNED_IMO_NUMBER,
+                KEEL_LAID_DATE,
+                REGISTERED_COMPANY_NAME,
+                REGISTERED_COMPANY_ADDRESS,
+                PORT_OF_REGISTRY
+            INTO 
+                V_VESSEL_NAME,
+                V_VESSEL_TYPE,
+                V_GRT,
+                V_COMPANY_IMO_NO,
+                V_DATE_OF_REGISTRY,
+                V_DOC_ISSUER,
+                V_DOC_EXPIRY, 
+                V_VESSEL_ADDRESS,
+                V_REG_OWNED_IMO_NUMBER,
+                V_KEEL_LAID_DATE,
+                V_REGISTERED_COMPANY_NAME,
+                V_REGISTERED_COMPANY_ADDRESS,
+                V_PORT_OF_REGISTRY
+            FROM VESSEL_DETAILS_HISTORY where AUDIT_SEQ_NO =  P_AUDIT_SEQ_NO and SL_NO = (select max(SL_NO) from VESSEL_DETAILS_HISTORY where AUDIT_SEQ_NO =  P_AUDIT_SEQ_NO ) ;
+            EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+         V_VESSEL_NAME := null;
+                V_VESSEL_TYPE:= null;
+                V_GRT:= null;
+                V_COMPANY_IMO_NO:= null;
+                V_DATE_OF_REGISTRY:= null;
+                V_DOC_ISSUER:= null;
+                V_DOC_EXPIRY:= null;
+                V_VESSEL_ADDRESS:= null;
+                V_REG_OWNED_IMO_NUMBER:= null;
+                V_KEEL_LAID_DATE:= null;
+                V_REGISTERED_COMPANY_NAME:= null;
+                V_REGISTERED_COMPANY_ADDRESS:= null;
+                V_PORT_OF_REGISTRY:= null;
+
+    end;
+       IF (V_VESSEL_NAME = P_VESSEL_NAME)
+        THEN
+            V_CNT := V_CNT+1;
+      END IF; 
+      IF(V_VESSEL_TYPE = P_VESSEL_TYPE)
+        THEN
+            V_CNT := V_CNT+1;
+       END IF; 
+       IF(V_GRT = P_GRT)
+        THEN
+            V_CNT := V_CNT+1;
+        END IF; 
+        IF(V_VESSEL_TYPE = P_VESSEL_TYPE)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+         IF(V_COMPANY_IMO_NO = P_COMPANY_IMO_NO)
+        THEN
+            V_CNT := V_CNT+1;
+        END IF; 
+        IF(V_DATE_OF_REGISTRY = P_DATE_OF_REGISTRY)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+         IF(V_DOC_ISSUER = P_DOC_ISSUER)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+        IF(V_DOC_EXPIRY = P_DOC_EXPIRY)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+        IF(V_VESSEL_ADDRESS = P_VESSEL_ADDRESS)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+        IF(V_REG_OWNED_IMO_NUMBER = P_REG_OWNED_IMO_NUMBER)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+         IF(V_KEEL_LAID_DATE = P_KEEL_LAID_DATE)
+        THEN
+            V_CNT := V_CNT+1;
+          END IF; 
+         IF(V_REGISTERED_COMPANY_NAME = P_REGISTERED_COMPANY_NAME)
+        THEN
+            V_CNT := V_CNT+1;
+             END IF; 
+         IF(V_REGISTERED_COMPANY_ADDRESS = P_REGISTERED_COMPANY_ADDRESS)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+         IF(V_PORT_OF_REGISTRY = P_PORT_OF_REGISTRY)
+        THEN
+            V_CNT := V_CNT+1;
+         END IF; 
+
+           IF (V_CNT != 14)
+        THEN
+              INSERT INTO VESSEL_DETAILS_HISTORY (AUDIT_SEQ_NO,DATE_INS,VESSEL_IMO_NO,VESSEL_NAME,VESSEL_TYPE,GRT,COMPANY_IMO_NO,DATE_OF_REGISTRY,DOC_ISSUER,DOC_EXPIRY, VESSEL_ADDRESS,VESSEL_ID,REG_OWNED_IMO_NUMBER,KEEL_LAID_DATE,REGISTERED_COMPANY_NAME,REGISTERED_COMPANY_ADDRESS,PORT_OF_REGISTRY) 
+            VALUES (P_AUDIT_SEQ_NO,P_DATE_INS,P_VESSEL_IMO_NO,P_VESSEL_NAME,P_VESSEL_TYPE,P_GRT,P_COMPANY_IMO_NO,P_DATE_OF_REGISTRY,P_DOC_ISSUER,P_DOC_EXPIRY, P_VESSEL_ADDRESS,P_VESSEL_ID,P_REG_OWNED_IMO_NUMBER,P_KEEL_LAID_DATE,P_REGISTERED_COMPANY_NAME,P_REGISTERED_COMPANY_ADDRESS,P_PORT_OF_REGISTRY);
+         END IF; 
+    END IF; 
+END IF; 
+
+COMMIT;
+
+END;
+/

@@ -1,0 +1,248 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.AUDIT_CAR_DUE_DATE_SCHE_PRC
+IS
+   v_org_Aud_Seq           NUMBER;
+   v_cur_Aud_Seq           NUMBER;
+   v_company_id            NUMBER;
+   v_finding_seq_no        NUMBER;
+   v_status_id             NUMBER;
+   v_due_date              VARCHAR2 (100);
+   v_count                 VARCHAR2 (100);
+   v_curr_date             DATE;
+   v_from                  VARCHAR2 (200) := audit_details_pkg.v_from;
+   v_to                    VARCHAR2 (1000);
+   v_mgr                   VARCHAR2 (500);
+   v_admin                 VARCHAR2 (100);
+   v_cc                    VARCHAR2 (1000);
+   v_sub                   VARCHAR2 (2000);
+   v_body                  VARCHAR2 (2000);
+   v_finding_status_id     NUMBER;
+   v_finding_category_id   NUMBER;
+   v_category_no           VARCHAR2 (200);
+   v_audit_type_id         NUMBER;
+   v_audit_desc_msg        VARCHAR2 (200);
+   v_audit_sub_type_id     NUMBER;
+   v_vessel_imo_no         NUMBER;
+   v_vessel_name           VARCHAR2 (200);
+   v_Err_Msg               VARCHAR2 (200);
+   v_audit_code            VARCHAR2 (200);
+   CUR1                    SYS_REFCURSOR;
+   CUR2                    SYS_REFCURSOR;
+BEGIN
+   OPEN CUR1 FOR
+      SELECT DISTINCT ORIG_SEQ_NO, COMPANY_ID FROM AUDIT_FINDINGS_DETAILS;
+
+   LOOP
+      FETCH CUR1
+      INTO v_org_Aud_Seq, v_company_id;
+
+      EXIT WHEN CUR1%NOTFOUND;
+
+      OPEN CUR2 FOR
+         SELECT AFD.FINDING_SEQ_NO,
+                AFD.STATUS_ID,
+                AFD.FINDING_CATEGORY_ID,
+                AFD.AUDIT_TYPE_ID,
+                AF.SERIAL_NO,
+                AD.VESSEL_IMO_NO,
+                AD.AUDIT_SUB_TYPE_ID,
+                AF.AUDIT_CODE,
+                CASE
+                   WHEN (SELECT COUNT (ORIG_SEQ_NO)
+                           FROM AUDIT_FINDINGS_DETAILS
+                          WHERE     COMPANY_ID = v_company_id
+                                AND ORIG_SEQ_NO = v_org_Aud_Seq
+                                AND STATUS_ID = 1008
+                                AND FINDING_SEQ_NO = AFD.FINDING_SEQ_NO) = 0
+                   THEN
+                      'opened'
+                   ELSE
+                      'closed'
+                END,
+                TO_CHAR (
+                   TO_DATE (VALIDATE_DATE_STRING (DUE_DATE), 'DD-MM-RRRR'),
+                   'DD-MM-RRRR')
+           FROM AUDIT_FINDINGS_DETAILS AFD,
+                AUDIT_FINDINGS AF,
+                AUDIT_DETAILS AD
+          WHERE     AFD.COMPANY_ID = AF.COMPANY_ID
+                AND AFD.COMPANY_ID = AD.COMPANY_ID
+                AND AFD.ORIG_SEQ_NO = AD.AUDIT_SEQ_NO
+                AND AFD.ORIG_SEQ_NO = AF.AUDIT_SEQ_NO
+                AND AFD.FINDING_SEQ_NO = AF.FINDING_SEQ_NO
+                AND AFD.STATUS_ID <> 1008
+                AND VALIDATE_DATE_STRING (AFD.DUE_DATE) <> '000000'
+                AND AFD.COMPANY_ID = v_company_id
+                AND AFD.ORIG_SEQ_NO = v_org_Aud_Seq;
+
+      LOOP
+         FETCH CUR2
+         INTO v_finding_seq_no,
+              v_finding_status_id,
+              v_finding_category_id,
+              v_audit_type_id,
+              v_category_no,
+              v_vessel_imo_no,
+              v_audit_sub_type_id,
+              v_audit_code,
+              v_count,
+              v_due_date;
+
+         EXIT WHEN CUR2%NOTFOUND;
+
+
+         IF (TO_DATE (v_due_date, 'DD-MM-RRRR') <
+                TO_DATE (SYSDATE, 'DD-MM-RRRR') )
+            AND v_count = 'opened'
+         THEN
+            SELECT subject, body
+              INTO v_sub, v_body
+              FROM audit_email_dtls
+             WHERE email_seq = 80;
+
+            IF v_audit_type_id IN (1004, 1005)
+            THEN
+               v_audit_desc_msg := 'Review';
+            ELSIF v_audit_type_id IN (1003)
+            THEN
+               v_audit_desc_msg := 'Inspection';
+            ELSE
+               v_audit_desc_msg := 'Audit';
+            END IF;
+
+            SELECT muliple_replace_fun (
+                      v_sub,
+                      NEW t_text ('(Category No.)',
+                                  '(Finding Status)',
+                                  'Audit Code:___',
+                                  '(Audit Type)',
+                                  '(Audit Subtype)',
+                                  'IMO No.:___'),
+                      NEW t_text (
+                             v_category_no,
+                             finding_status,
+                             v_audit_desc_msg || ' Code: ' || v_audit_code,
+                             v_audit_desc_msg || ' Type: ' || audit_type_desc,
+                                v_audit_desc_msg
+                             || ' SubType: '
+                             || audit_subtype_desc,
+                             'IMO No: ' || v_vessel_imo_no)),
+                   muliple_replace_fun (
+                      v_body,
+                      NEW t_text ('Finding Status:___',
+                                  'Category:___',
+                                  'Audit Code:___',
+                                  '(Audit Type)',
+                                  '(Audit Subtype)',
+                                  'IMO No.:____',
+                                  'Name:____',
+                                  'Official No.:____'),
+                      NEW t_text (
+                             'Finding Status: ' || finding_status,
+                             'Category: ' || audit_finding_type,
+                             v_audit_desc_msg || ' Code: ' || v_audit_code,
+                             v_audit_desc_msg || ' Type: ' || audit_type_desc,
+                                v_audit_desc_msg
+                             || ' SubType: '
+                             || audit_subtype_desc,
+                             'IMO No: ' || v_vessel_imo_no,
+                             'Name: ' || v_vessel_name,
+                             'Official No: ' || official_num))
+              INTO v_sub, v_body
+              FROM (SELECT (SELECT audit_type_desc
+                              FROM ma_audit_type
+                             WHERE audit_type_id = v_audit_type_id
+                                   AND company_id = v_company_id)
+                              audit_type_desc,
+                           (SELECT AUDIT_SUBTYPE_DESC
+                              FROM ma_audit_subtype
+                             WHERE AUDIT_TYPE_ID = v_audit_type_id
+                                   AND AUDIT_SUB_TYPE_ID =
+                                          v_audit_sub_type_id
+                                   AND COMPANY_ID = v_company_id)
+                              audit_subtype_desc,
+                           (SELECT FINDING_CATEGORY_DESC
+                              FROM MA_FINDINGS_CATEGORY
+                             WHERE company_id = v_company_id
+                                   AND FINDING_CATEGORY_ID =
+                                          v_finding_category_id
+                                   AND AUDIT_TYPE_ID = v_audit_type_id)
+                              audit_finding_type,
+                           (SELECT OFFICIAL_NO
+                              FROM ma_vessel
+                             WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                   AND company_id = v_company_id)
+                              official_num,
+                              (SELECT VESSEL_NAME
+                           FROM MA_VESSEL
+                          WHERE VESSEL_IMO_NO = v_vessel_imo_no
+                                AND COMPANY_ID = v_company_id)
+                           v_vessel_name,
+                           (SELECT FINDING_STATUS_DESC
+                              FROM MA_FINDINGS_STATUS
+                             WHERE FINDING_STATUS_ID = v_finding_status_id
+                                   AND AUDIT_TYPE_ID = v_audit_type_id
+                                   AND COMPANY_ID = v_company_id)
+                              finding_status
+                      FROM DUAL) TEST;
+
+            SELECT listAgg (user_id, ',')
+                      WITHIN GROUP (ORDER BY audit_seq_no ASC)
+              INTO v_to
+              FROM AUDIT_AUDITOR_DETAILS
+             WHERE     AUDIT_ROLE_ID = 1001
+                   AND AUDIT_SEQ_NO = v_org_Aud_Seq
+                   AND company_id = v_company_id;
+
+            SELECT listAgg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+              INTO v_mgr
+              FROM MA_USER_ROLES USRL
+             WHERE USRL.ROLE_ID = 1003 AND company_id = v_company_id;
+
+            SELECT listAgg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+              INTO v_admin
+              FROM MA_USER_ROLES USRL
+             WHERE USRL.ROLE_ID = 1002 AND company_id = v_company_id;
+
+            v_cc := v_mgr || ',' || v_admin;
+            
+                DBMS_OUTPUT.PUT_LINE ('v_sub ' || v_sub);
+                  DBMS_OUTPUT.PUT_LINE ('v_bdy ' || v_body);
+
+
+           audit_send_mail_prc ('Alert for Findings Overdue ',
+                                 v_company_id,
+                                 v_from,
+                                 v_to,
+                                 v_cc,
+                                 v_sub,
+                                 v_body);
+         END IF;
+      END LOOP;
+   END LOOP;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      SELECT subject
+        INTO v_sub
+        FROM audit_email_dtls
+       WHERE email_seq = 80;
+
+      DBMS_OUTPUT.PUT_LINE ('vErrMsg ' || v_Err_Msg);
+
+      DBMS_OUTPUT.put_line (
+            '  OUTER BLOCK EXCEPTION '
+         || SQLCODE
+         || ' >> '
+         || SQLERRM
+         || '  >> '
+         || DBMS_UTILITY.format_error_backtrace);
+      v_Err_Msg := SQLERRM || ' on ' || DBMS_UTILITY.format_error_backtrace;
+      audit_send_mail_prc (
+         p_audit_no     => 'Alert for Findings Overdue  ',
+         p_company_id   => v_company_id,
+         p_from_mail    => v_from,
+         p_to_mail      => audit_details_pkg.V_BSOLTEAM,
+         p_subject      => v_sub,
+         p_body         => v_Err_Msg);
+END;
+/

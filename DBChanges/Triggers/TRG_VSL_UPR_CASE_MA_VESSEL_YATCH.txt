@@ -1,0 +1,10 @@
+DROP TRIGGER AUDIT_STAG_TEST.TRG_VSL_UPR_CASE_MA_VESSEL_YATCH;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST.trg_vsl_upr_case_ma_vessel_yatch
+    -- this trigger is to make vessel type of ma_vessel_yatch table as upper case
+    BEFORE INSERT OR UPDATE ON AUDIT_STAG_TEST.MA_VESSEL_YATCH     FOR EACH ROW
+BEGIN
+
+      :NEW.VESSEL_TYPE := UPPER(:NEW.VESSEL_TYPE);
+    END;
+/

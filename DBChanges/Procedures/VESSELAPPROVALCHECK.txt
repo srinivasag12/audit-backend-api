@@ -1,0 +1,47 @@
+CREATE OR REPLACE PROCEDURE AUDIT_STAG_TEST.VesselApprovalCheck (pVslImoNo     VARCHAR2,
+                                                 pCompanyId    NUMBER, pLeadAud varchar2)
+AS
+vCount number;
+ vSubject varchar2(100);
+ vBdy varchar2(100);
+ vSub varchar2(100);
+ vBody varchar2(100);
+  v_cc varchar2(200);
+BEGIN
+SELECT listAgg (user_id,',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_cc
+     FROM MA_USER_ROLES USRL
+    WHERE USRL.ROLE_ID = 1002 and company_id=pCompanyId;
+   SELECT COUNT (*)
+     INTO vCount
+     FROM ma_vessel
+    WHERE     vessel_imo_no = pVslImoNo
+          AND company_id = pCompanyId
+          AND TC_APPROVAL_STATUS = 0;
+
+   IF vCount >= 1
+   THEN
+      SELECT subject, body
+            into vSubject, vBody
+        FROM audit_email_dtls
+       WHERE email_seq = 25;
+
+      vSub :=
+         REPLACE (vSubject,
+                  'Vessel IMO No:____',
+                  'Vessel IMO No: ' || pVslImoNo);
+      vBdy :=
+         REPLACE (vBody,
+                  'Vessel IMO No:__ ',
+                  'Vessel IMO No: ' || pVslImoNo);
+
+      audit_send_mail_prc ('Vessel Approved check for ' || pVslImoNo,
+                           pCompanyId,
+                           audit_details_pkg.v_from,
+                           pLeadAud, 
+                         v_cc,                   --vTo,
+                           vSub,
+                           vBdy);
+   END IF;
+END;
+/

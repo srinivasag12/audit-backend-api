@@ -1,0 +1,152 @@
+DROP TRIGGER LOCAL_AUDIT_CHANGES.MAKING_PREVIOUS_CERT_INACTIVE;
+
+CREATE OR REPLACE TRIGGER LOCAL_AUDIT_CHANGES.MAKING_PREVIOUS_CERT_INACTIVE
+AFTER UPDATE
+OF PUBLISH_STATUS
+ON LOCAL_AUDIT_CHANGES.CERTIFICATE_DETAIL 
+REFERENCING NEW AS NEW OLD AS OLD
+FOR EACH ROW
+DECLARE
+   v_company_id      NUMBER;
+   v_auditTypeId     NUMBER;
+   v_auditSeqNo      NUMBER;
+   v_vesselImoNo     NUMBER;
+   v_certificateNo   VARCHAR2 (200);
+   v_seqNo           NUMBER;
+   v_status          VARCHAR2 (200);
+
+   PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+
+   IF     (:NEW.AUDIT_SUB_TYPE_ID IN (1001, 1002, 1004))
+      AND (:NEW.CERTIFICATE_ISSUE_ID <> 1008 AND :NEW.CERTIFICATE_ISSUE_ID<> 1003)
+      AND (:NEW.PUBLISH_STATUS = 1)  
+   THEN
+      IF :NEW.AUDIT_SUB_TYPE_ID = 1001
+      THEN
+         SELECT 'interim-interim' INTO v_status FROM DUAL;
+      ELSE
+         SELECT 'fullterm-fullterm' INTO v_status FROM DUAL;
+      END IF;
+
+      MAKE_PREVIOUS_CERTIFICATE_INACTIVE (:NEW.AUDIT_SEQ_NO,
+                                          :NEW.CERTIFICATE_NO,
+                                          :NEW.AUDIT_TYPE_ID,
+                                          :NEW.COMPANY_ID,
+                                          :NEW.VESSEL_IMO_NO,
+                                          :NEW.SEQ_NO,
+                                          :NEW.CERTIFICATE_ISSUE_ID,
+                                          v_status);
+   END IF;
+
+   IF     (:NEW.AUDIT_SUB_TYPE_ID IN (1001, 1002, 1004))
+      AND (:NEW.CERTIFICATE_ISSUE_ID = 1008 AND :NEW.CERTIFICATE_ISSUE_ID<> 1003)
+      AND (:NEW.PUBLISH_STATUS = 1)
+   THEN
+      IF :NEW.AUDIT_SUB_TYPE_ID = 1001
+      THEN
+         SELECT 'interim-reissue' INTO v_status FROM DUAL;
+      ELSE
+         SELECT 'fullterm-reissue' INTO v_status FROM DUAL;
+      END IF;
+
+      MAKE_PREVIOUS_CERTIFICATE_INACTIVE (:NEW.AUDIT_SEQ_NO,
+                                          :NEW.CERTIFICATE_NO,
+                                          :NEW.AUDIT_TYPE_ID,
+                                          :NEW.COMPANY_ID,
+                                          :NEW.VESSEL_IMO_NO,
+                                          :NEW.SEQ_NO,
+                                          :NEW.CERTIFICATE_ISSUE_ID,
+                                         v_status);
+   END IF;
+   
+   
+   IF     (:NEW.AUDIT_SUB_TYPE_ID IN (1003,1005))
+      AND (:NEW.CERTIFICATE_ISSUE_ID <> 1008 AND :NEW.CERTIFICATE_ISSUE_ID <> 1003)
+      AND (:NEW.PUBLISH_STATUS = 1)
+   THEN
+      IF :NEW.AUDIT_SUB_TYPE_ID = 1003
+      THEN
+         SELECT 'intermediate-endorsement' INTO v_status FROM DUAL;
+      ELSE
+         SELECT 'additional-endorsement' INTO v_status FROM DUAL;
+      END IF;
+
+      MAKE_PREVIOUS_CERTIFICATE_INACTIVE (:NEW.AUDIT_SEQ_NO,
+                                          :NEW.CERTIFICATE_NO,
+                                          :NEW.AUDIT_TYPE_ID,
+                                          :NEW.COMPANY_ID,
+                                          :NEW.VESSEL_IMO_NO,
+                                          :NEW.SEQ_NO,
+                                          :NEW.CERTIFICATE_ISSUE_ID,
+                                         v_status);
+   END IF; 
+   
+      
+ /*  IF     (:NEW.AUDIT_SUB_TYPE_ID IN (1003,1005))
+      AND ( :NEW.CERTIFICATE_ISSUE_ID = 1003)
+      AND (:NEW.PUBLISH_STATUS = 1)
+   THEN
+      IF :NEW.AUDIT_SUB_TYPE_ID = 1003
+      THEN
+         SELECT 'intermediate-extension' INTO v_status FROM DUAL;
+      ELSE
+         SELECT 'additional-extension' INTO v_status FROM DUAL;
+      END IF;
+
+      MAKE_PREVIOUS_CERTIFICATE_INACTIVE (:NEW.AUDIT_SEQ_NO,
+                                          :NEW.CERTIFICATE_NO,
+                                          :NEW.AUDIT_TYPE_ID,
+                                          :NEW.COMPANY_ID,
+                                          :NEW.VESSEL_IMO_NO,
+                                          :NEW.SEQ_NO,
+                                          :NEW.CERTIFICATE_ISSUE_ID,
+                                         v_status);
+   END IF; */
+   
+   IF (:NEW.AUDIT_SUB_TYPE_ID IN (1001,1002,1004)) AND (:NEW.CERTIFICATE_ISSUE_ID = 1003 ) AND (:NEW.PUBLISH_STATUS =1)
+     
+   THEN 
+   
+     SELECT 'fullterm-extension' INTO v_status FROM DUAL;
+     
+     
+     MAKE_PREVIOUS_CERTIFICATE_INACTIVE (:NEW.AUDIT_SEQ_NO,
+                                          :NEW.CERTIFICATE_NO,
+                                          :NEW.AUDIT_TYPE_ID,
+                                          :NEW.COMPANY_ID,
+                                          :NEW.VESSEL_IMO_NO,
+                                          :NEW.SEQ_NO,
+                                          :NEW.CERTIFICATE_ISSUE_ID,
+                                         v_status);
+     
+   
+   END IF; 
+   
+      
+    /* IF     (:NEW.AUDIT_SUB_TYPE_ID IN (1003,1005))
+      AND (:NEW.CERTIFICATE_ISSUE_ID = 1008)
+      AND (:NEW.PUBLISH_STATUS = 1)
+   THEN
+      IF :NEW.AUDIT_SUB_TYPE_ID = 1003
+      THEN
+         SELECT 'intermediate-reissue' INTO v_status FROM DUAL;
+      ELSE
+         SELECT 'additional-reissue' INTO v_status FROM DUAL;
+      END IF;
+
+      MAKE_PREVIOUS_CERTIFICATE_INACTIVE (:NEW.AUDIT_SEQ_NO,
+                                          :NEW.CERTIFICATE_NO,
+                                          :NEW.AUDIT_TYPE_ID,
+                                          :NEW.COMPANY_ID,
+                                          :NEW.VESSEL_IMO_NO,
+                                          :NEW.SEQ_NO,
+                                          :NEW.CERTIFICATE_ISSUE_ID,
+                                         v_status);
+   END IF;  */
+   
+   COMMIT;
+
+   DBMS_OUTPUT.put_line ('test');
+END;
+/

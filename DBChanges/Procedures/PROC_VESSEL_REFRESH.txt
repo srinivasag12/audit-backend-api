@@ -1,0 +1,24 @@
+CREATE OR REPLACE procedure AUDIT_STAG_TEST.proc_vessel_refresh is 
+    req utl_http.req;
+    res utl_http.resp;
+    url varchar2(4000) := 'https://auditingapp.register-iri.com:8181/CentralAuditApi/getUpdatedData';
+    name varchar2(4000);
+    buffer varchar2(4000);
+begin
+         UTL_HTTP.set_wallet('file:/rdsdbdata/userdirs/02', '');
+        req := utl_http.begin_request(url, 'GET',' HTTP/1.1');
+        utl_http.set_header(req, 'user-agent', 'mozilla/4.0');
+        utl_http.set_header(req, 'content-type', 'application/xml');
+        res := utl_http.get_response(req);
+begin
+loop
+    utl_http.read_line(res, buffer);
+end loop;
+    utl_http.end_response(res);
+exception
+    when utl_http.end_of_body
+        then
+        utl_http.end_response(res);
+    end;
+end proc_vessel_refresh;
+/

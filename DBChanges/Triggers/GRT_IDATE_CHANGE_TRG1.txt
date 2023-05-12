@@ -1,0 +1,178 @@
+DROP TRIGGER AUDIT_STAG_TEST.GRT_IDATE_CHANGE_TRG1;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."GRT_IDATE_CHANGE_TRG1"   
+after update of GRT,CERT_ISSUED_DATE
+ON AUDIT_STAG_TEST.CERTIFICATE_DETAILS FOR EACH ROW
+DISABLE
+declare
+v_lead_auditor varchar2(200);
+v_mrg varchar2(200);
+vTo varchar2(200) := audit_details_pkg.v_From;
+vessel_imo_no varchar2(200);
+vaudit_status_id NUMBER;
+vSub    VARCHAR2 (1000);
+vBody   VARCHAR2 (1000);
+vCC     VARCHAR2 (1000);
+v_from varchar2(200):='iri@bsolsystems.com';
+ v_admin varchar2(200);
+ v_company_id number;
+ v_audit_seq_no number;
+ v_audit_type_id number;
+ v_audit_sub_type_id number;
+ v_audit_type_desc varchar2(200);
+ v_audit_subtype_desc varchar2(200);
+ v_oldgrt varchar2(200);
+ v_newgrt varchar2(200);
+ v_oldidate date;
+ v_newidate date;
+BEGIN
+IF :new.GENERATE_STATUS = 1
+THEN
+v_oldgrt:=:old.grt;
+v_newgrt:=:new.grt;
+v_oldidate:=:old.cert_issued_date;
+v_newidate:=:new.cert_issued_date;
+v_audit_type_id:=:old.audit_type_id;
+v_audit_sub_type_id:=:old.audit_sub_type_id;
+v_audit_seq_no:=:old.audit_seq_no;
+v_company_id:=:old.company_id;
+
+dbms_output.put_line(v_audit_type_id);
+dbms_output.put_line(v_audit_sub_type_id);
+dbms_output.put_line(v_audit_seq_no);
+dbms_output.put_line(v_company_id);
+
+select audit_type_desc into v_audit_type_desc from ma_audit_type where audit_type_id=v_audit_type_id and company_id=v_company_id;
+select audit_subtype_desc into v_audit_subtype_desc from ma_audit_subtype where audit_type_id=v_audit_type_id and audit_sub_type_id=v_audit_sub_type_id and company_id=v_company_id;
+select audit_status_id  into vaudit_status_id from audit_details where audit_seq_no=v_audit_seq_no and company_id=v_company_id;
+select vessdocdeptid into vTo from ma_company where company_id=v_company_id;
+--dbms_output.put_line('step1');
+--to pick manager
+ SELECT listagg (user_id,',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_mrg
+     FROM ma_user_roles
+    WHERE role_id =1003 and company_id=v_company_id;
+    --to pick admin
+ SELECT listagg (user_id,',') WITHIN GROUP (ORDER BY role_id ASC)
+     INTO v_admin
+     FROM ma_user_roles
+    WHERE role_id =1002 and company_id=v_company_id;
+    --to pick lead
+    select user_id into v_lead_auditor from audit_auditor_details where audit_seq_no=v_audit_seq_no and audit_role_id=1001 and aud_lead_status=1;
+    
+IF UPDATING('GRT')THEN
+if v_oldgrt<>v_newgrt then
+if vaudit_status_id =1002 then
+dbms_output.put_line('step2');
+   SELECT muliple_replace_fun (subject,
+                               NEW t_text ('RMI Admin'),
+                               NEW t_text ('RMI Admin'||vTo)),
+          muliple_replace_fun (
+             body,
+             NEW t_text ('Old Value__',
+                         'New Value___(Latest)',
+                         'Admin ___',
+                         'Vessel IMO No.___',
+                         'Audit Subtype:__,',
+                         'Audit Type:__'),
+             t_text ('Old Value ' || :OLD.GRT,
+                     'New Value ' || :NEW.GRT,
+                     'Admin ' ||vTo,
+                     'Vessel IMO No ' ||:old.vessel_imo_no || '..!!!',
+                     'Audit Subtype:'||v_audit_subtype_desc,
+                     'Audit_type:'||v_audit_type_desc))
+     INTO vSub, vBody
+     FROM (SELECT subject, body
+             FROM audit_email_dtls
+            WHERE email_seq = 36);
+dbms_output.put_line('step3');
+
+--   SELECT listagg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+--     INTO vCC
+--     FROM ma_user_roles
+--    WHERE role_id in(SELECT role_id
+--                       FROM ma_roles
+--                      WHERE role_desc in ('Auditor','Manager'));
+--                    
+                     vCC:=v_lead_auditor||','||v_admin||','||v_mrg ;
+dbms_output.put_line(vessel_imo_no);
+dbms_output.put_line(audit_details_pkg.v_From);
+dbms_output.put_line(v_admin);
+dbms_output.put_line(vCC);
+dbms_output.put_line(vSub);
+dbms_output.put_line(vBody);
+
+dbms_output.put_line('step4');
+ 
+  audit_send_mail_prc(
+    'Updating of GRT value for the Vessel IMO No ' || vessel_imo_no,
+      NULL, 
+      v_from,
+      vTo,
+     vCC,
+      vSub,
+      vBody);
+END IF; 
+end if; 
+end if;
+--UPDATING CERT_ISSUED_DATE
+
+IF UPDATING('CERT_ISSUED_DATE')then 
+dbms_output.put_line('step1');
+if v_oldidate<>v_newidate then
+dbms_output.put_line('step2');
+if vaudit_status_id =1002 then
+dbms_output.put_line('step3');
+SELECT muliple_replace_fun (subject,
+                               NEW t_text ('RMI Admin'),
+                               NEW t_text ('RMI Admin'||vTo)),
+          muliple_replace_fun (
+             body,
+             NEW t_text ('Old Value__',
+                         'New Value___(Latest)',
+                         'Admin ___',
+                         'Vessel IMO No.___',
+                         'Audit Subtype:__',
+                         'Audit Type:__'),
+             t_text ('Old Value ' || :old.CERT_ISSUED_DATE,
+                     'New Value ' || :new.CERT_ISSUED_DATE,
+                     'Admin ' ||vTo,
+                     'Vessel IMO No ' ||:old.vessel_imo_no || '..!!!',
+                     'Audit Subtype:'||v_audit_subtype_desc,
+                     'Audit_type:'||v_audit_type_desc))
+     INTO vSub, vBody
+     FROM (SELECT subject, body
+             FROM audit_email_dtls
+            WHERE email_seq = 38);
+
+
+--   SELECT listagg (user_id, ',') WITHIN GROUP (ORDER BY role_id ASC)
+--     INTO vCC
+--     FROM ma_user_roles
+--    WHERE role_id in(SELECT role_id
+--                       FROM ma_roles
+--                      WHERE role_desc in ('Auditor','Manager'));
+                   
+                        vCC:=v_lead_auditor||','||v_admin||','||v_mrg;
+dbms_output.put_line(vessel_imo_no);
+dbms_output.put_line(audit_details_pkg.v_From);
+
+dbms_output.put_line(vCC);
+dbms_output.put_line(vSub);
+dbms_output.put_line(vBody);
+
+
+  audit_send_mail_prc (
+      'Updating of CERT_ISSUED_DATE value for the Vessel IMO No ' || vessel_imo_no,
+      NULL,
+      audit_details_pkg.v_From,
+     vTo,
+      vCC,
+      vSub,
+      vBody);
+END IF;
+END IF;
+end if;
+end if;
+END;
+/

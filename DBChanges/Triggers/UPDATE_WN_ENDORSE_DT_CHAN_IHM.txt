@@ -1,0 +1,34 @@
+DROP TRIGGER AUDIT_STAG_TEST.UPDATE_WN_ENDORSE_DT_CHAN_IHM;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."UPDATE_WN_ENDORSE_DT_CHAN_IHM" 
+   AFTER INSERT OR UPDATE OF ENDORSED_DATE
+   ON AUDIT_STAG_TEST.CERTIFICATE_DETAIL    FOR EACH ROW
+DECLARE
+   v_endorsed_date        DATE;
+   v_audit_sub_type_id        NUMBER;
+   v_audit_seq_no             NUMBER;
+   v_cert_issue_id            NUMBER;
+   v_cert_no                  VARCHAR2(50);
+   v_vessel_imo_no            NUMBER;
+   v_audit_type_id            NUMBER;
+   v_company_id               NUMBER;
+   PRAGMA AUTONOMOUS_TRANSACTION;
+BEGIN
+   v_endorsed_date := :new.ENDORSED_DATE;
+   v_audit_sub_type_id := :new.AUDIT_SUB_TYPE_ID;
+   v_audit_seq_no := :new.AUDIT_SEQ_NO;
+   v_company_id := :new.COMPANY_ID;
+   v_vessel_imo_no := :new.VESSEL_IMO_NO;
+   v_audit_type_id := :new.AUDIT_TYPE_ID;
+   
+     
+
+IF (v_audit_type_id = 1006 AND v_audit_sub_type_id = 1002)
+  THEN
+    UPDATE AUDIT_DETAILS SET ADDITIONAL_SURVEY= to_char(:new.ENDORSED_DATE,'YYYY-MM-DD')   WHERE AUDIT_SEQ_NO=:new.AUDIT_SEQ_NO ;
+  commit;
+  END IF;
+   
+  
+  END;
+/

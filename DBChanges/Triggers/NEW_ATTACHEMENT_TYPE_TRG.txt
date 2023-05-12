@@ -1,0 +1,61 @@
+DROP TRIGGER AUDIT_STAG_TEST.NEW_ATTACHEMENT_TYPE_TRG;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."NEW_ATTACHEMENT_TYPE_TRG"   
+   BEFORE INSERT
+   ON ma_attachment_types
+   FOR EACH ROW
+DECLARE
+   v_from                   VARCHAR2 (30) := audit_details_pkg.v_From;
+   v_to                     VARCHAR2 (3000);
+   v_sub                    VARCHAR2 (500);
+   v_body                   VARCHAR2 (1000);
+   v_company_id             NUMBER;
+   v_cc                     VARCHAR2 (30);-- := audit_details_pkg.v_admin;
+   v_attachment_type_desc   VARCHAR2 (100);
+BEGIN
+select user_id into v_cc from ma_user_roles where role_id=1002;
+   CASE
+      WHEN INSERTING
+      THEN
+         v_attachment_type_desc := :new.attachment_type_desc;
+         v_company_id := :new.company_id;
+
+         SELECT subject,
+                REPLACE (
+                   body,
+                   'New Feature____',
+                   'New Feature '
+                   || (SELECT v_attachment_type_desc FROM DUAL))
+           INTO v_sub, v_body
+           FROM audit_email_dtls
+          WHERE email_seq = 12;
+
+         --V_SUB := 'New Feature/Audit Subtype added';
+         --V_BODY := 'The New Feature '||V_ATTACHMENT_TYPE_DESC||' has been added to the Audit System.';
+
+         SELECT listagg (user_id, ',') WITHIN GROUP (ORDER BY role_id)
+           INTO v_to
+           FROM ma_user_roles
+          WHERE role_id = 1001 AND company_id = v_company_id;
+UPDATE MASTER_TABLE_UPDATE SET TABLE_UPDATION=0 WHERE TABLE_NAME='AttachmentTypes';  
+         audit_send_mail_prc ('New Attachement Type',
+                              v_company_id,
+                              v_from,
+                              v_to,
+                              v_cc,
+                              v_sub,
+                              v_body);
+                              
+   WHEN DELETING THEN
+UPDATE MASTER_TABLE_UPDATE SET TABLE_UPDATION=0 WHERE TABLE_NAME='AttachmentTypes';
+   WHEN UPDATING THEN
+   UPDATE MASTER_TABLE_UPDATE SET TABLE_UPDATION=0 WHERE TABLE_NAME='AttachmentTypes';                              
+      ELSE
+         NULL;
+   END CASE;
+EXCEPTION
+   WHEN OTHERS
+   THEN
+      NULL;
+END;
+/

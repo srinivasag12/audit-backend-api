@@ -1,0 +1,12 @@
+CREATE OR REPLACE FUNCTION AUDIT_STAG_TEST.F_DECRYPT (p_input VARCHAR2)
+   RETURN VARCHAR2
+AS
+   v_decrypted_raw     RAW (2000);
+   v_encryption_type   PLS_INTEGER := DBMS_CRYPTO.DES_CBC_PKCS5;
+BEGIN
+   v_decrypted_raw :=DBMS_CRYPTO.DECRYPT ( src   =>p_input,
+                                                                          typ   => v_encryption_type,
+                                                                          key   => '62736f6c31323334' );
+    RETURN UTL_I18N.RAW_TO_CHAR (v_decrypted_raw, 'AL32UTF8');
+END;
+/

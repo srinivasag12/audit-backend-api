@@ -1,0 +1,185 @@
+DROP TRIGGER AUDIT_STAG_TEST.CREATE_CYCLE_CERTIFICATE;
+
+CREATE OR REPLACE TRIGGER AUDIT_STAG_TEST."CREATE_CYCLE_CERTIFICATE" 
+ BEFORE INSERT
+ ON AUDIT_STAG_TEST.CERTIFICATE_DETAIL    REFERENCING NEW AS NEW 
+ FOR EACH ROW
+DECLARE
+    V_CREDIT_DATE               DATE;
+   V_NEXT_INTERMEDIATE_START   DATE;
+   V_NEXT_INTERMEDIATE_END     DATE;
+   V_NEXT_RENEWAL              DATE;
+   V_USER_INS                  VARCHAR2 (100);
+   V_DATE_INS                  DATE;
+   v_COUNT                     NUMBER;
+   v_COUNT2                    NUMBER;
+   V_ITERATER                  NUMBER;
+   V_ITR_VAL                   NUMBER;
+   v_COUNT_ITERATION           NUMBER;
+   V_AUDIT_DATE                DATE;
+   V_AUDIT_SUB_TYPE_ID         NUMBER;
+   check_role_id               NUMBER;
+   V_SUB_ITERATOR              NUMBER;
+   ROW_EXIT                    NUMBER;
+   V_RENEWAL_NEXT_CYCLE        NUMBER;
+   V_RENEWAL_NEXT_CYCLE2       NUMBER;
+   V_AUDIT_SEQ_NO              NUMBER;
+   V_LEAD_NAME                 VARCHAR2 (100);
+   ROLE_ID_COUNT               NUMBER;
+   CYCLE_NEXT_RENEWAL          AUDIT_CYCLE.NEXT_RENEWAL%TYPE;
+   THREE_MONTH_DATE_CYCLE      DATE;
+   V_PREV_AUDIT_EXP_DATE       DATE;
+   V_NEXT_RENEWAL_START        DATE;
+   V_CYCLE_GEN                 NUMBER;
+   V_HISTORY_GEN_NO            NUMBER;
+   V_INTERMEDIATE_DUE_DATE     DATE;
+   V_NEXT_RENEWAL_DUE_DATE     DATE;
+   V_DOC_TYPE_NUMBER            VARCHAR(80);
+   V_COMPANY_DOC  VARCHAR2 (80);
+   V_AUDIT_STATUS_ID         NUMBER;
+   V_CYCLE_COUNT              NUMBER;
+BEGIN  
+IF :new.AUDIT_SUB_TYPE_ID = 1004  AND  :NEW.AUDIT_SEQ_NO <>  600000 AND :NEW.AUDIT_SEQ_NO <>  600001   AND   :NEW.AUDIT_SEQ_NO <>  600002 AND   :NEW.AUDIT_SEQ_NO <>  600003  AND :NEW.AUDIT_SEQ_NO <>  600004 THEN
+   SELECT CREDIT_DATE INTO V_CREDIT_DATE  FROM AUDIT_DETAILS WHERE AUDIT_SEQ_NO =:NEW.AUDIT_SEQ_NO AND COMPANY_ID=:NEW.COMPANY_ID AND  ROWNUM=1;
+   
+   SELECT  AUDIT_STATUS_ID INTO V_AUDIT_STATUS_ID  FROM AUDIT_DETAILS WHERE AUDIT_SEQ_NO =:NEW.AUDIT_SEQ_NO AND COMPANY_ID=:NEW.COMPANY_ID AND ROWNUM=1;
+     
+   SELECT DOC_TYPE_NUMBER INTO V_DOC_TYPE_NUMBER FROM MA_VESSEL WHERE VESSEL_NAME=:NEW.VESSEL_NAME AND COMPANY_ID=:NEW.COMPANY_ID AND  ROWNUM=1;
+   
+   SELECT DOC_TYPE_NO INTO V_COMPANY_DOC FROM MA_VESSEL_COMPANY  WHERE COMPANY_IMO_NO = :NEW.COMPANY_IMO_NO AND COMPANY_ID=:NEW.COMPANY_ID AND ROWNUM=1;
+   
+   SELECT COUNT(*) INTO V_CYCLE_COUNT  FROM AUDIT_CYCLE WHERE CYCLE_SEQ_NO=:NEW.AUDIT_SEQ_NO AND COMPANY_ID=:NEW.COMPANY_ID;
+    
+   
+   
+     IF :new.AUDIT_SUB_TYPE_ID = 1004 AND V_CREDIT_DATE  IS NOT NULL  AND :NEW.CERTIFICATE_ISSUE_ID =1002 AND V_CYCLE_COUNT=0
+      THEN
+         SELECT MAX (CYCLE_GEN_NO)
+           INTO V_CYCLE_GEN
+           FROM AUDIT_CYCLE
+          WHERE VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID AND COMPANY_ID=:NEW.COMPANY_ID;
+                
+                 SELECT MAX (HISTORY_GEN_NO)
+        INTO V_HISTORY_GEN_NO
+        FROM AUDIT_CYCLE_HISTORY
+       WHERE VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+             AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID AND COMPANY_ID=:NEW.COMPANY_ID;
+
+      IF V_HISTORY_GEN_NO IS NULL
+      THEN
+         V_HISTORY_GEN_NO := 1;
+      ELSE
+         V_HISTORY_GEN_NO := V_HISTORY_GEN_NO + 1;
+      END IF;
+
+         V_CYCLE_GEN := V_CYCLE_GEN + 1;
+
+         INSERT INTO AUDIT_CYCLE (ITERATOR,
+                                  VESSEL_IMO_NO,
+                                  COMPANY_ID,
+                                  COMPANY_IMO_NO,
+                                  COMPANY_DOC,
+                                  DOC_TYPE_NUMBER,
+                                  AUDIT_TYPE_ID,
+                                  ACTIVE_STATUS,
+                                  USER_INS,
+                                  DATE_INS,
+                                  AUDIT_DATE,
+                                  AUDIT_SUB_TYPE_ID,
+                                  ROLE_ID,
+                                  SUB_ITERATOR,
+                                  AUDIT_STATUS_ID,
+                                  CYCLE_SEQ_NO,
+                                  CREDIT_DATE,
+                                  LEAD_NAME,
+                                  CYCLE_GEN_NO)
+              VALUES (V_ITR_VAL,
+                      :new.VESSEL_IMO_NO,
+                      :new.COMPANY_ID,
+                      :new.COMPANY_IMO_NO,
+                      V_COMPANY_DOC,
+                      V_DOC_TYPE_NUMBER,
+                      :new.AUDIT_TYPE_ID,
+                      1,
+                      :new.USER_INS,
+                      :new.DATE_INS,
+                      :new.AUDIT_DATE,
+                      :new.AUDIT_SUB_TYPE_ID,
+                      1001,
+                      V_SUB_ITERATOR,
+                      V_AUDIT_STATUS_ID,
+                      :NEW.AUDIT_SEQ_NO,
+                       V_CREDIT_DATE,
+                      V_LEAD_NAME,
+                      V_CYCLE_GEN);
+     
+
+
+
+      
+      
+         SELECT MAX (NEXT_RENEWAL)
+           INTO V_PREV_AUDIT_EXP_DATE
+           FROM AUDIT_CYCLE
+          WHERE VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID AND COMPANY_ID=:NEW.COMPANY_ID;
+
+         SELECT ADD_MONTHS (V_PREV_AUDIT_EXP_DATE, -3)
+           INTO THREE_MONTH_DATE_CYCLE
+           FROM DUAL;
+
+
+         IF  V_CREDIT_DATE <= THREE_MONTH_DATE_CYCLE
+            AND  V_CREDIT_DATE <> THREE_MONTH_DATE_CYCLE
+         THEN
+            SELECT ADD_MONTHS ( V_CREDIT_DATE, 60)
+              INTO V_NEXT_RENEWAL
+              FROM DUAL;
+
+            SELECT V_NEXT_RENEWAL - 1 INTO V_NEXT_RENEWAL FROM DUAL;
+         ELSE
+            ---SELECT  NEXT_RENEWAL INTO THREE_MONTH_DATE_CYCLE  FROM AUDIT_CYCLE WHERE VESSEL_IMO_NO=:NEW.VESSEL_IMO_NO  AND AUDIT_TYPE_ID=:NEW.AUDIT_TYPE_ID  and  ROWNUM=1  order by  NEXT_RENEWAL desc;
+            SELECT ADD_MONTHS (V_PREV_AUDIT_EXP_DATE, 60)
+              INTO V_NEXT_RENEWAL
+              FROM DUAL;
+         END IF;
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -36)
+           INTO V_NEXT_INTERMEDIATE_START
+           FROM DUAL;
+
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -24)
+           INTO V_NEXT_INTERMEDIATE_END
+           FROM DUAL;
+
+
+         SELECT ADD_MONTHS (V_NEXT_RENEWAL, -3)
+           INTO V_NEXT_RENEWAL_START
+           FROM DUAL;
+           
+             SELECT ADD_MONTHS ( V_CREDIT_DATE, 30)
+           INTO V_INTERMEDIATE_DUE_DATE
+           FROM DUAL;
+
+         UPDATE AUDIT_CYCLE
+            SET CREDIT_DATE =  V_CREDIT_DATE,
+                NEXT_INTERMEDIATE_START = V_NEXT_INTERMEDIATE_START,
+                NEXT_INTERMEDIATE_END = V_NEXT_INTERMEDIATE_END,
+                NEXT_RENEWAL = V_NEXT_RENEWAL,
+                NEXT_RENEWAL_START = V_NEXT_RENEWAL_START,
+                INTERMEDIATE_DUE_DATE = V_INTERMEDIATE_DUE_DATE,
+                NEXT_RENEWAL_DUE_DATE = V_NEXT_RENEWAL
+          WHERE     VESSEL_IMO_NO = :NEW.VESSEL_IMO_NO
+                AND AUDIT_TYPE_ID = :NEW.AUDIT_TYPE_ID
+                AND COMPANY_ID = :NEW.COMPANY_ID
+                AND ROLE_ID <> 1003
+                AND ROLE_ID <> 1002
+                AND CYCLE_SEQ_NO = :NEW.AUDIT_SEQ_NO;
+      
+       END IF;
+     END IF;
+
+END;
+/
