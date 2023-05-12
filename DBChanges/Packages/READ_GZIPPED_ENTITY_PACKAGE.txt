@@ -1,7 +1,0 @@
-CREATE OR REPLACE PACKAGE AUDIT_PROD.read_gzipped_entity_package AS
-
-FUNCTION read_entity(entity_id IN VARCHAR2)
-  RETURN VARCHAR2;
-
-END read_gzipped_entity_package;
-/
